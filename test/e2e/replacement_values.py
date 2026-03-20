@@ -13,6 +13,21 @@
 """Stores the values used by each of the integration tests for replacing the
 Database Migration Service-specific test variables.
 """
+from acktest.aws import identity
+from e2e.bootstrap_resources import get_bootstrap_resources
+
+BOOTSTRAP_RESOURCES = get_bootstrap_resources()
 
 REPLACEMENT_VALUES = {
+    "PUBLIC_SUBNET_1": BOOTSTRAP_RESOURCES.TestVPC.public_subnets.subnet_ids[0],
+    "PUBLIC_SUBNET_2": BOOTSTRAP_RESOURCES.TestVPC.public_subnets.subnet_ids[1],
+    # Security group that belongs to the bootstrap VPC; used by ReplicationInstance tests.
+    "SECURITY_GROUP_ID": BOOTSTRAP_RESOURCES.TestVPC.security_group.group_id,
+    # Shared SNS topic used by EventSubscription tests.
+    "SNS_TOPIC_ARN": BOOTSTRAP_RESOURCES.TestTopic.arn,
+    # S3 bucket and IAM role used by Endpoint (S3 target) tests.
+    "S3_BUCKET_NAME": BOOTSTRAP_RESOURCES.TestBucket.name,
+    # The test bucket is bootstrapped in the current AWS account.
+    "S3_BUCKET_OWNER": identity.get_account_id(),
+    "DMS_S3_ROLE_ARN": BOOTSTRAP_RESOURCES.TestEndpointRole.arn,
 }

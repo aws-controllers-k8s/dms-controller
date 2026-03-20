@@ -150,6 +150,12 @@ reconcile:
   # If empty, all resources will be reconciled.
   # If specified, only the listed resource kinds will be reconciled.
   resources:
+    - Certificate
+    - Endpoint
+    - EventSubscription
+    - ReplicationInstance
+    - ReplicationSubnetGroup
+    - ReplicationTask
 
 serviceAccount:
   # Specifies whether a service account should be created

@@ -1,18 +1,736 @@
+ignore:
+  field_paths:
+    # We ignore CertificateWallet and provide a custom field in the Spec
+    - ImportCertificateInput.CertificateWallet
+    # We ignore the following fields because they bloat the Status object
+    # and contain information from other ACK resources which can be
+    # obtained directly.
+    - ReplicationInstance.VpcSecurityGroups
+    - ReplicationInstance.ReplicationSubnetGroup
+  resource_names:
+#    - Certificate
+    - DataMigration
+    - DataProvider
+#    - Endpoint
+#    - EventSubscription
+    - FleetAdvisorCollector
+    - InstanceProfile
+    - MigrationProject
+    - ReplicationConfig
+#    - ReplicationInstance
+#    - ReplicationSubnetGroup
+#    - ReplicationTask
+operations:
+  ImportCertificate:
+    resource_name: Certificate
+    operation_type: CREATE
+  ModifyReplicationInstance:
+    override_values:
+      # The whole concept of a "maintenance window" isn't aligned with the
+      # declarative state model in Kubernetes. Users should build "maintenance
+      # window" functionality at a higher layer than the APIs that manage the
+      # lifecycle of individual resources like a replication instance. For
+      # example, users can build maintenance window functionality into their
+      # deployment pipeline solution or GitOps solution.
+      #
+      # We override the value of the ApplyImmediately field in the modify
+      # operations to "true" because we want changes that a Kubernetes user
+      # makes to a resource's Spec to be reconciled by the ACK service
+      # controller, not a different service.
+      ApplyImmediately: true
+      # We override the value of AllowMajorVersionUpgrade field in the modify
+      # call since any engine version change should apply directly.
+      # This flag was designed as a protect flag but not necessary in controller
+      # side when customer need to make the engine version change
+      AllowMajorVersionUpgrade: true
+resources:
+  Certificate:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+    fields:
+      CertificatePem:
+        is_secret: true
+      # We ignore this field from ImportCertificateInput and replace it with a
+      # custom field in the Spec because []byte fields in combination with
+      # is_secret are not properly handled by ACK code generator which causes
+      # type casting errors in newCreateRequestPayload()
+      CertificateWallet:
+        is_secret: true
+        type: "*string"
+      KMSKeyID:
+        is_immutable: true
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      Tags:
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_create_post_build_request:
+        template_path: hooks/certificate/sdk_create_post_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/certificate/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/certificate/sdk_read_many_post_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        ImportCertificate:
+          input_fields:
+            CertificateIdentifier: Name
+    # DMS does not provide a ModifyCertificate API, so we have to use a custom
+    # method to update Tags.
+    update_operation:
+      custom_method_name: customSdkUpdate
+  Endpoint:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+      terminal_codes:
+        - InvalidParameterCombinationException
+        - InvalidParameterValueException
+    fields:
+      CertificateARN:
+        references:
+          resource: Certificate
+          path: Status.ACKResourceMetadata.ARN
+      DmsTransferSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      DocDBSettings.KMSKeyID:
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      DocDBSettings.Password:
+        is_secret: true
+      DocDBSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      DocDBSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      DynamoDBSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      ElasticsearchSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      EngineName:
+        is_immutable: true
+      EndpointStatus:
+        print:
+          name: Status
+      EndpointType:
+        is_immutable: true
+        print:
+          name: Type
+      GcpMySQLSettings.Password:
+        is_secret: true
+      GcpMySQLSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      GcpMySQLSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      IBMDB2Settings.Password:
+        is_secret: true
+      IBMDB2Settings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      IBMDB2Settings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      KafkaSettings.SASLPassword:
+        is_secret: true
+      KafkaSettings.SSLCaCertificateARN:
+        references:
+          resource: Certificate
+          path: Status.ACKResourceMetadata.ARN
+      KafkaSettings.SSLClientCertificateARN:
+        references:
+          resource: Certificate
+          path: Status.ACKResourceMetadata.ARN
+      KafkaSettings.SSLClientKeyARN:
+        references:
+          resource: Certificate
+          path: Status.ACKResourceMetadata.ARN
+      KafkaSettings.SSLClientKeyPassword:
+        is_secret: true
+      KinesisSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      KinesisSettings.StreamARN:
+        references:
+          resource: Stream
+          service_name: kinesis
+          path: Status.ACKResourceMetadata.ARN
+      KMSKeyID:
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      MicrosoftSQLServerSettings.Password:
+        is_secret: true
+      MicrosoftSQLServerSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      MicrosoftSQLServerSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      MongoDBSettings.KMSKeyID:
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      MongoDBSettings.Password:
+        is_secret: true
+      MongoDBSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      MongoDBSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      MySQLSettings.Password:
+        is_secret: true
+      MySQLSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      MySQLSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      MySQLSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      NeptuneSettings.S3BucketName:
+        references:
+          resource: Bucket
+          service_name: s3
+          path: Spec.Name
+      NeptuneSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      OracleSettings.AsmPassword:
+        is_secret: true
+      OracleSettings.ExtraArchivedLogDestIDs:
+        compare:
+          is_ignored: true
+      OracleSettings.Password:
+        is_secret: true
+      OracleSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      OracleSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      Password:
+        is_secret: true
+      PostgreSQLSettings.Password:
+        is_secret: true
+      PostgreSQLSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      PostgreSQLSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      PostgreSQLSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      RedisSettings.AuthPassword:
+        is_secret: true
+      RedisSettings.SSLCaCertificateARN:
+        references:
+          resource: Certificate
+          path: Status.ACKResourceMetadata.ARN
+      RedshiftSettings.AuthPassword:
+        is_secret: true
+      RedshiftSettings.BucketName:
+        references:
+          resource: Bucket
+          service_name: s3
+          path: Spec.Name
+      RedshiftSettings.Password:
+        is_secret: true
+      RedshiftSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      RedshiftSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      RedshiftSettings.ServerSideEncryptionKMSKeyID:
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      RedshiftSettings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      ReplicationTasks:
+        is_read_only: true
+        type: "map[string]*string"
+      ResourceIdentifier:
+        is_immutable: true
+      S3Settings.BucketName:
+        references:
+          resource: Bucket
+          service_name: s3
+          path: Spec.Name
+      S3Settings.ServerSideEncryptionKMSKeyID:
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      S3Settings.ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      ServiceAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      SybaseSettings.Password:
+        is_secret: true
+      SybaseSettings.SecretsManagerAccessRoleARN:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      SybaseSettings.SecretsManagerSecretID:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      Tags:
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
+      sdk_create_post_set_output:
+        template_path: hooks/endpoint/sdk_create_post_set_output.go.tpl
+      sdk_delete_post_request:
+        template_path: hooks/endpoint/sdk_delete_post_request.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/endpoint/sdk_delete_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/endpoint/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/endpoint/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_set_output:
+        template_path: hooks/endpoint/sdk_update_pre_set_output.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/endpoint/sdk_update_post_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    reconcile:
+      requeue_on_success_seconds: 300
+    renames:
+      operations:
+        CreateEndpoint:
+          input_fields:
+            EndpointIdentifier: Name
+          output_fields:
+            Status: EndpointStatus
+        DescribeEndpoints:
+          output_fields:
+            Status: EndpointStatus
+        ModifyEndpoint:
+          output_fields:
+            Status: EndpointStatus
+  EventSubscription:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      SNSTopicARN:
+        references:
+          resource: Topic
+          service_name: sns
+          path: Status.ACKResourceMetadata.ARN
+      SourceType:
+        print:
+          name: Source
+      SubscriptionStatus:
+        print:
+          name: Status
+      Tags:
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_read_many_post_set_output:
+        template_path: hooks/event_subscription/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_set_output:
+        template_path: hooks/event_subscription/sdk_update_pre_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        CreateEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsId: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
+        DeleteEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+        DescribeEventSubscriptions:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsID: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
+        ModifyEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsId: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
+  ReplicationInstance:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+      terminal_codes:
+        - InvalidParameterCombinationException
+        - InvalidParameterValueException
+    fields:
+      AvailabilityZone:
+        # Can only be set at creation time, but may change when MultiAZ is
+        # enabled and failover occurs.
+        compare:
+          is_ignored: true
+      DNSNameServers:
+        is_immutable: true
+      EngineVersion:
+        compare:
+          is_ignored: true
+      InstanceStatus:
+        print:
+          name: Status
+      KMSKeyID:
+        is_immutable: true
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      Name:
+        compare:
+          is_ignored: true
+        is_primary_key: true
+        is_immutable: true
+      PubliclyAccessible:
+        is_immutable: true
+      ReplicationTasks:
+        is_read_only: true
+        type: "map[string]*string"
+      ResourceIdentifier:
+        is_immutable: true
+      SubnetGroupID:
+        is_immutable: true
+        references:
+          resource: ReplicationSubnetGroup
+          path: Spec.Name
+      SecurityGroupIDs:
+        references:
+          service_name: ec2
+          resource: SecurityGroup
+          path: Status.ID
+      Tags:
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_delete_post_request:
+        template_path: hooks/replication_instance/sdk_delete_post_request.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/replication_instance/sdk_delete_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/replication_instance/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/replication_instance/sdk_read_many_post_set_output.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/replication_instance/sdk_update_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/replication_instance/sdk_update_pre_build_request.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    reconcile:
+      requeue_on_success_seconds: 300
+    renames:
+      operations:
+        CreateReplicationInstance:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+        DescribeReplicationInstances:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+        ModifyReplicationInstance:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+    update_operation:
+      omit_unchanged_fields: true
+  ReplicationSubnetGroup:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      SubnetGroupStatus:
+        print:
+          name: Status
+      SubnetIDs:
+        references:
+          service_name: ec2
+          resource: Subnet
+          path: Status.SubnetID
+      Tags:
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_read_many_post_build_request:
+        template_path: hooks/replication_subnet_group/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/replication_subnet_group/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_set_output:
+        template_path: hooks/replication_subnet_group/sdk_update_pre_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        CreateReplicationSubnetGroup:
+          input_fields:
+            ReplicationSubnetGroupDescription: Description
+            ReplicationSubnetGroupIdentifier: Name
+        DeleteReplicationSubnetGroup:
+          input_fields:
+            ReplicationSubnetGroupIdentifier: Name
+        DescribeReplicationSubnetGroups:
+          input_fields:
+            ReplicationSubnetGroupDescription: Description
+            ReplicationSubnetGroupIdentifier: Name
+        ModifyReplicationSubnetGroup:
+          input_fields:
+            ReplicationSubnetGroupDescription: Description
+            ReplicationSubnetGroupIdentifier: Name
+  ReplicationTask:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+      terminal_codes:
+        - InvalidParameterCombinationException
+        - InvalidParameterValueException
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      ReplicationInstanceARN:
+        is_immutable: true
+        references:
+          resource: ReplicationInstance
+          path: Status.ACKResourceMetadata.ARN
+      ResourceIdentifier:
+        is_immutable: true
+      SourceEndpointARN:
+        is_immutable: true
+        references:
+          resource: Endpoint
+          path: Status.ACKResourceMetadata.ARN
+      SourceEndpointConnectionStatus:
+        is_read_only: true
+        type: string
+      SourceEndpointConnectionLastFailureMessage:
+        is_read_only: true
+        type: string
+      StartReplicationTask:
+        type: bool
+      Tags:
+        compare:
+          is_ignored: true
+      TargetEndpointARN:
+        is_immutable: true
+        references:
+          resource: Endpoint
+          path: Status.ACKResourceMetadata.ARN
+      TargetEndpointConnectionStatus:
+        is_read_only: true
+        type: string
+      TargetEndpointConnectionLastFailureMessage:
+        is_read_only: true
+        type: string
+      TaskStatus:
+        print:
+          name: Status
+      UpdateInProgress:
+        is_read_only: true
+        type: bool
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_delete_post_request:
+        template_path: hooks/replication_task/sdk_delete_post_request.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/replication_task/sdk_delete_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/replication_task/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/replication_task/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/replication_task/sdk_update_pre_build_request.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/replication_task/sdk_update_post_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    reconcile:
+      requeue_on_success_seconds: 300
+    renames:
+      operations:
+        CreateReplicationTask:
+          input_fields:
+            ReplicationTaskIdentifier: Name
+            ReplicationTaskSettings: TaskSettings
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
+        DescribeReplicationTasks:
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
+        ModifyReplicationTask:
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
 sdk_names:
   model_name: database-migration-service
   package_name: databasemigrationservice
-  
-ignore:
-  resource_names:
-      - DataMigration
-      - DataProvider
-      - Endpoint
-      - EventSubscription
-      - FleetAdvisorCollector
-      - InstanceProfile
-      - MigrationProject
-      - ReplicationConfig
-      - ReplicationInstance
-      - ReplicationSubnetGroup
-      - ReplicationTask
-

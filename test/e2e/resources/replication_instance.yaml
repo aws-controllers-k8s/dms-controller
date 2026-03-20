@@ -1,0 +1,17 @@
+apiVersion: dms.services.k8s.aws/v1alpha1
+kind: ReplicationInstance
+metadata:
+  name: $REPLICATION_INSTANCE_NAME
+spec:
+  allocatedStorage: 5
+  instanceClass: dms.t3.small
+  name: $REPLICATION_INSTANCE_NAME
+  publiclyAccessible: true
+  securityGroupIDs:
+    - $SECURITY_GROUP_ID
+  subnetGroupRef:
+    from:
+      name: $REPLICATION_SUBNET_GROUP_NAME
+  tags:
+    - key: environment
+      value: dev

@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Statement1",
+      "Effect": "Allow",
+      "Action": [
+        "dms:AddTagsToResource",
+        "dms:CreateEndpoint",
+        "dms:CreateEventSubscription",
+        "dms:CreateReplicationInstance",
+        "dms:CreateReplicationSubnetGroup",
+        "dms:CreateReplicationTask",
+        "dms:DeleteCertificate",
+        "dms:DeleteEndpoint",
+        "dms:DeleteEventSubscription",
+        "dms:DeleteReplicationInstance",
+        "dms:DeleteReplicationSubnetGroup",
+        "dms:DeleteReplicationTask",
+        "dms:DescribeCertificates",
+        "dms:DescribeConnections",
+        "dms:DescribeEndpoints",
+        "dms:DescribeEventSubscriptions",
+        "dms:DescribeReplicationInstances",
+        "dms:DescribeReplicationSubnetGroups",
+        "dms:DescribeReplicationTasks",
+        "dms:ImportCertificate",
+        "dms:ListTagsForResource",
+        "dms:ModifyEndpoint",
+        "dms:ModifyEventSubscription",
+        "dms:ModifyReplicationInstance",
+        "dms:ModifyReplicationSubnetGroup",
+        "dms:ModifyReplicationTask",
+        "dms:RemoveTagsFromResource",
+        "dms:StartReplicationTask",
+        "dms:StopReplicationTask"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -9,6 +9,12 @@ rules:
 - apiGroups:
   - dms.services.k8s.aws
   resources:
+  - certificates
+  - endpoints
+  - eventsubscriptions
+  - replicationinstances
+  - replicationsubnetgroups
+  - replicationtasks
   verbs:
   - create
   - delete
@@ -20,6 +26,12 @@ rules:
 - apiGroups:
   - dms.services.k8s.aws
   resources:
+  - certificates
+  - endpoints
+  - eventsubscriptions
+  - replicationinstances
+  - replicationsubnetgroups
+  - replicationtasks
   verbs:
   - get
   - patch

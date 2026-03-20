@@ -1,0 +1,89 @@
+resources:
+  Certificate:
+    fields:
+      CertificateWallet:
+        override: |-
+          A Base64 encoded Oracle Wallet certificate (cwallet.sso) for use with SSL.
+  Endpoint:
+    fields:
+      CertificateRef:
+        prepend: |-
+          Reference to an ACK managed ACM certificate resource to associate with this
+          endpoint.
+      KmsKeyRef:
+        prepend: |-
+          Reference to an ACK managed KMS key that is used to encrypt the connection
+          parameters for the endpoint.
+      ReplicationTasks:
+        override: |-
+          The replication tasks associated with this endpoint and their current status.
+      ServiceAccessRoleRef:
+        prepend: |-
+          Reference to an ACK managed IAM role resource that you want to use as the
+          service access role to creates the endpoint.
+  EventSubscription:
+    fields:
+      SnsTopicRef:
+        prepend: |-
+          Reference to an ACK managed Amazon SNS topic resource created for event
+          notification.
+  ReplicationInstance:
+    fields:
+      KmsKeyRef:
+        prepend: |-
+          Reference to an ACK managed KMS key that is used to encrypt the data on the
+          replication instance.
+      ReplicationTasks:
+        override: |-
+          The replication tasks associated with this replication instance and their
+          current status.
+      SubnetGroupRef:
+        prepend: |-
+          Reference to an ACK managed replication subnet group to associate with this
+          replication instance.
+      SecurityGroupRefs:
+        prepend: |-
+          One or more references to ACK managed EC2 security group resources to be
+          used with the replication instance.
+          The security group must work with the VPC containing the replication
+          instance.
+  ReplicationSubnetGroup:
+    fields:
+      SubnetRefs:
+        prepend: |-
+          Two or more references to ACK managed EC2 subnet resources to be assigned to
+          the subnet group.
+  ReplicationTask:
+    fields:
+      ReplicationInstanceRef:
+        prepend: |-
+          Reference to an ACK managed replication instance resource for this replication
+          task.
+      SourceEndpointConnectionStatus:
+        override: |-
+          Indicates the connection status of the source endpoint.
+      SourceEndpointConnectionLastFailureMessage:
+        override: |-
+          If the connection to the source endpoint failed, this field contains the
+          related error message.
+      SourceEndpointRef:
+        prepend: |-
+          Reference to an ACK managed source endpoint resource for this replication task.
+      StartReplicationTask:
+        override: |-
+          Indicates whether the replication task should be started after it is created.
+      TargetEndpointConnectionStatus:
+        override: |-
+          Indicates the connection status of the target endpoint.
+      TargetEndpointConnectionLastFailureMessage:
+        override: |-
+          If the connection to the target endpoint failed, this field contains the
+          related error message.
+      TargetEndpointRef:
+        prepend: |-
+          Reference to an ACK managed target endpoint resource for this replication task.
+      UpdateInProgress:
+        override: |-
+          Indicates whether the replication task is in the process of being updated.
+          This field is used as a guard in the reconcile loop to prevent the
+          replication task from being started while an update is pending.

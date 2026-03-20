@@ -1,1 +1,2 @@
-acktest @ git+https://github.com/aws-controllers-k8s/test-infra.git@42ac499f39ee343d99a7035ecec44cbc5a2dd35a
+acktest @ git+https://github.com/aws-controllers-k8s/test-infra.git@ba511c0a59245f4b3120d3d8f728451350e35f79
+cryptography
