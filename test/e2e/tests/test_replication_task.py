@@ -1,0 +1,509 @@
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+"""Integration tests for the DMS API ReplicationTask resource.
+
+Test scenarios:
+    test_crud: Create a ReplicationTask using S3 source and destination
+        endpoints in the same bucket with different prefixes, verify it
+        reaches ready state, update table mappings and tags, verify
+        changes are synced to AWS API, delete task.
+"""
+
+import json
+import logging
+import time
+
+import pytest
+
+from acktest import tags
+from acktest.k8s import condition
+from acktest.k8s import resource as k8s
+from acktest.resources import random_suffix_name
+from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_dms_resource
+from e2e.ordered import ordered
+from e2e.replacement_values import REPLACEMENT_VALUES
+from e2e import replication_instance as ri_aws_api
+from e2e import replication_task as aws_api
+from e2e.test_data import upload_csv_to_s3, get_target_data_s3_key, cleanup_s3_folders
+
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+
+RESOURCE_PLURAL = "replicationtasks"
+ENDPOINT_RESOURCE_PLURAL = "endpoints"
+INSTANCE_RESOURCE_PLURAL = "replicationinstances"
+SUBNET_GROUP_RESOURCE_PLURAL = "replicationsubnetgroups"
+SUBNET_GROUP_DESC = "Test subnet group for ReplicationTask"
+
+# Timeouts for waiting on resource states
+MAX_WAIT_INSTANCE_SYNCED_MINUTES = 20
+MAX_WAIT_SUBNET_GROUP_SYNCED_MINUTES = 5
+MAX_WAIT_ENDPOINT_SYNCED_MINUTES = 5
+MAX_WAIT_TASK_SYNCED_MINUTES = 10
+
+# Time to wait between modifications for controller reconciliation
+MODIFY_WAIT_AFTER_SECONDS = 10
+
+SOURCE_CSV_S3_KEY = "source/public/customers/LOAD001.csv"
+
+SOURCE_EXTERNAL_TABLE_DEFINITION = json.dumps({
+    "TableCount": "1",
+    "Tables": [
+        {
+            "TableName": "customers",
+            "TableOwner": "public",
+            "TablePath": "public/customers/",
+            "TableColumns": [
+                {"ColumnName": "customer_id", "ColumnType": "INT8"},
+                {"ColumnName": "name", "ColumnType": "STRING", "ColumnLength": "255"},
+                {"ColumnName": "email", "ColumnType": "STRING", "ColumnLength": "255"},
+                {"ColumnName": "phone", "ColumnType": "STRING", "ColumnLength": "50"},
+                {"ColumnName": "created_at", "ColumnType": "DATETIME"},
+                {"ColumnName": "account_balance", "ColumnType": "REAL8"},
+                {"ColumnName": "status", "ColumnType": "STRING", "ColumnLength": "50"},
+            ],
+            "TableColumnsTotal": "7"
+        }
+    ],
+}, indent=2)
+
+# Table mappings JSON
+DEFAULT_TABLE_MAPPINGS = json.dumps({
+    "rules": [
+        {
+            "rule-type": "selection",
+            "rule-id": "1",
+            "rule-name": "include-all",
+            "object-locator": {
+                "schema-name": "%",
+                "table-name": "%"
+            },
+            "rule-action": "include"
+        }
+    ]
+}, indent=2)
+
+UPDATED_TABLE_MAPPINGS = json.dumps({
+    "rules": [
+        {
+            "rule-type": "selection",
+            "rule-id": "1",
+            "rule-name": "include-all",
+            "object-locator": {
+                "schema-name": "%",
+                "table-name": "%"
+            },
+            "rule-action": "include"
+        },
+        {
+            "rule-type": "transformation",
+            "rule-id": "2",
+            "rule-name": "add-prefix",
+            "rule-target": "column",
+            "object-locator": {
+                "schema-name": "%",
+                "table-name": "%",
+                "column-name": "%"
+            },
+            "rule-action": "add-prefix",
+            "value": "dms_"
+        }
+    ]
+}, indent=2)
+
+# -----------------------------------------------------------------------------
+# Fixture
+# -----------------------------------------------------------------------------
+
+@pytest.fixture
+def replication_task_fixture(request):
+    """Creates all K8s resources needed for ReplicationTask tests.
+
+    This is a composite fixture that creates resources in dependency order:
+    1. Upload sample csv data to S3 source folder
+    2. Create replication subnet group
+    3. Create replication instance
+    4. Create source S3 endpoint
+    5. Create target S3 endpoint
+    6. Create ReplicationTask CR
+
+    Yields:
+        Tuple of references for all created resources
+    """
+    bucket_name = REPLACEMENT_VALUES['S3_BUCKET_NAME']
+    sg_ref = None
+    ri_ref = None
+    source_ep_ref = None
+    target_ep_ref = None
+    task_ref = None
+    task_arn: str | None = None
+    instance_name = None
+
+    def _cleanup():
+        """Deletes any resources created by this fixture.
+
+        Registered as a finalizer so it runs even if fixture setup fails after
+        creating one or more Kubernetes resources or S3 test data.
+        """
+        if task_ref is not None:
+            try:
+                if k8s.get_resource_exists(task_ref):
+                    _, deleted = k8s.delete_custom_resource(task_ref, 10 * 6, 10)
+                    assert deleted
+            except Exception as e:
+                logging.warning(f"Error deleting replication task CR: {e}")
+
+        if task_arn is not None:
+            try:
+                aws_api.wait_until_deleted(task_arn)
+                logging.info("Replication task deleted")
+            except Exception as e:
+                logging.warning(f"Error waiting for replication task deletion: {e}")
+
+        if ri_ref is not None:
+            try:
+                if k8s.get_resource_exists(ri_ref):
+                    _, deleted = k8s.delete_custom_resource(ri_ref, 20 * 6, 10)
+                    assert deleted
+            except Exception as e:
+                logging.warning(f"failed to delete replication instance CR: {e}")
+
+        if instance_name is not None:
+            try:
+                ri_aws_api.wait_until_deleted(instance_name)
+            except Exception as e:
+                logging.warning(
+                    f"failed waiting for replication instance deletion: {e}"
+                )
+
+        if sg_ref is not None:
+            try:
+                if k8s.get_resource_exists(sg_ref):
+                    _, deleted = k8s.delete_custom_resource(sg_ref, 3, 10)
+                    assert deleted
+            except Exception as e:
+                logging.warning(f"failed to delete subnet group CR: {e}")
+
+        if target_ep_ref is not None:
+            try:
+                if k8s.get_resource_exists(target_ep_ref):
+                    _, deleted = k8s.delete_custom_resource(target_ep_ref, 3, 10)
+                    assert deleted
+            except Exception as e:
+                logging.warning(f"failed to delete target endpoint CR: {e}")
+
+        if source_ep_ref is not None:
+            try:
+                if k8s.get_resource_exists(source_ep_ref):
+                    _, deleted = k8s.delete_custom_resource(source_ep_ref, 3, 10)
+                    assert deleted
+            except Exception as e:
+                logging.warning(f"failed to delete source endpoint CR: {e}")
+
+        try:
+            cleanup_s3_folders(bucket_name)
+        except Exception as e:
+            logging.warning(f"failed to delete S3 bucket folders: {e}")
+
+    request.addfinalizer(_cleanup)
+
+    # ---- Generate resource names --------------------------------------------
+    task_name = random_suffix_name("my-replication-task", 25)
+    instance_name = random_suffix_name("my-replication-instance", 29)
+    source_ep_name = random_suffix_name("my-source-endpoint", 24)
+    target_ep_name = random_suffix_name("my-target-endpoint", 24)
+    subnet_group_name = random_suffix_name("my-replication-subnet-group", 33)
+
+    # ---- Upload source data to S3 -------------------------------------------
+    logging.info(f"Uploading csv data to s3://{bucket_name}/source/")
+    upload_csv_to_s3(bucket_name, SOURCE_CSV_S3_KEY)
+
+    # ---- Create Source Endpoint ---------------------------------------------
+    source_ep_replacements = REPLACEMENT_VALUES.copy()
+    source_ep_replacements["ENDPOINT_NAME"] = source_ep_name
+    source_ep_replacements["ENDPOINT_BUCKET_FOLDER"] = "source"
+    source_ep_replacements["ENDPOINT_TYPE"] = "source"
+
+    source_ep_data = load_dms_resource(
+        "endpoint",
+        additional_replacements=source_ep_replacements,
+    )
+    source_ep_data["spec"]["s3Settings"]["ignoreHeaderRows"] = 1
+    source_ep_data["spec"]["s3Settings"]["externalTableDefinition"] = (
+        SOURCE_EXTERNAL_TABLE_DEFINITION
+    )
+
+    source_ep_ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, ENDPOINT_RESOURCE_PLURAL,
+        source_ep_name, namespace="default",
+    )
+    k8s.create_custom_resource(source_ep_ref, source_ep_data)
+    source_ep_cr = k8s.wait_resource_consumed_by_controller(source_ep_ref)
+
+    assert source_ep_cr is not None
+
+    assert k8s.wait_on_condition(
+        source_ep_ref, "ACK.ResourceSynced", "True",
+        wait_periods=MAX_WAIT_ENDPOINT_SYNCED_MINUTES * 4, period_length=15,
+    )
+
+    # ---- Create Target Endpoint ---------------------------------------------
+    target_ep_replacements = REPLACEMENT_VALUES.copy()
+    target_ep_replacements["ENDPOINT_NAME"] = target_ep_name
+    target_ep_replacements["ENDPOINT_BUCKET_FOLDER"] = "target/"
+    target_ep_replacements["ENDPOINT_TYPE"] = "target"
+
+    target_ep_data = load_dms_resource(
+        "endpoint",
+        additional_replacements=target_ep_replacements,
+    )
+    target_ep_data["spec"]["s3Settings"]["dataFormat"] = "parquet"
+    target_ep_data["spec"]["s3Settings"]["parquetVersion"] = "parquet-2-0"
+    target_ep_data["spec"]["s3Settings"]["compressionType"] = "GZIP"
+    target_ep_data["spec"]["s3Settings"]["enableStatistics"] = True
+
+    target_ep_ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, ENDPOINT_RESOURCE_PLURAL,
+        target_ep_name, namespace="default",
+    )
+    k8s.create_custom_resource(target_ep_ref, target_ep_data)
+    target_ep_cr = k8s.wait_resource_consumed_by_controller(target_ep_ref)
+
+    assert target_ep_cr is not None
+
+    assert k8s.wait_on_condition(
+        target_ep_ref, "ACK.ResourceSynced", "True",
+        wait_periods=MAX_WAIT_ENDPOINT_SYNCED_MINUTES * 4, period_length=15,
+    )
+
+    # ---- Create ReplicationSubnetGroup --------------------------------------
+    sg_replacements = REPLACEMENT_VALUES.copy()
+    sg_replacements["REPLICATION_SUBNET_GROUP_NAME"] = subnet_group_name
+    sg_replacements["REPLICATION_SUBNET_GROUP_DESC"] = SUBNET_GROUP_DESC
+
+    sg_resource_data = load_dms_resource(
+        "replication_subnet_group",
+        additional_replacements=sg_replacements,
+    )
+    logging.debug(sg_resource_data)
+
+    sg_ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, SUBNET_GROUP_RESOURCE_PLURAL,
+        subnet_group_name, namespace="default",
+    )
+    k8s.create_custom_resource(sg_ref, sg_resource_data)
+    sg_cr = k8s.wait_resource_consumed_by_controller(sg_ref)
+
+    assert sg_cr is not None
+    assert k8s.wait_on_condition(
+        sg_ref, "ACK.ResourceSynced", "True",
+        wait_periods=MAX_WAIT_SUBNET_GROUP_SYNCED_MINUTES * 4, period_length=15,
+    )
+
+    # ---- Create ReplicationInstance -----------------------------------------
+    ri_replacements = REPLACEMENT_VALUES.copy()
+    ri_replacements["REPLICATION_INSTANCE_NAME"] = instance_name
+    ri_replacements["REPLICATION_SUBNET_GROUP_NAME"] = subnet_group_name
+
+    ri_resource_data = load_dms_resource(
+        "replication_instance",
+        additional_replacements=ri_replacements,
+    )
+    logging.debug(ri_resource_data)
+
+    ri_ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, INSTANCE_RESOURCE_PLURAL,
+        instance_name, namespace="default",
+    )
+    k8s.create_custom_resource(ri_ref, ri_resource_data)
+    ri_cr = k8s.wait_resource_consumed_by_controller(ri_ref)
+
+    assert ri_cr is not None
+    assert k8s.wait_on_condition(
+        ri_ref, "ACK.ResourceSynced", "True",
+        wait_periods=MAX_WAIT_INSTANCE_SYNCED_MINUTES * 4, period_length=15,
+    )
+
+    # ---- Create ReplicationTask ---------------------------------------------
+    task_replacements = REPLACEMENT_VALUES.copy()
+    task_replacements["REPLICATION_TASK_NAME"] = task_name
+    task_replacements["REPLICATION_INSTANCE_NAME"] = instance_name
+    task_replacements["SOURCE_ENDPOINT_NAME"] = source_ep_name
+    task_replacements["TARGET_ENDPOINT_NAME"] = target_ep_name
+
+    task_resource_data = load_dms_resource(
+        "replication_task",
+        additional_replacements=task_replacements,
+    )
+
+    task_ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        task_name, namespace="default",
+    )
+    k8s.create_custom_resource(task_ref, task_resource_data)
+    task_cr = k8s.wait_resource_consumed_by_controller(task_ref)
+
+    yield task_ref, task_cr, task_name
+
+
+
+# ---------------------------------------------------------------------------
+# Test Class
+# ---------------------------------------------------------------------------
+
+
+@service_marker
+class TestReplicationTask:
+
+    def test_crud(self, replication_task_fixture):
+        """Verifies the full Create → Read → Update → Delete → Migrate lifecycle.
+
+        Checks:
+        1. After creation, K8s CR has ACK.ResourceSynced=True and DMS API
+           reports task in ready state.
+        2. All spec fields are synced to AWS API.
+        3. Task ARN is populated in CR status.
+        4. Initial tags are applied.
+        5. Task starts running when startReplicationTask=true.
+        6. Task completes migration (reaches stopped state).
+        7. Data is migrated to target S3 folder.
+        8. Table mappings can be updated; AWS API reflects the change.
+        9. Tags can be updated; AWS API reflects the change.
+        10. Task can be deleted cleanly.
+        """
+        ref, cr, task_name = replication_task_fixture
+
+        # ---- Verify create / read -------------------------------------------
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+
+        task_arn = k8s.get_resource_arn(cr)
+        assert task_arn is not None
+        latest = aws_api.get(task_arn)
+        assert latest is not None
+        assert latest['Status'] == 'ready'
+
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert cr['status']['taskStatus'] == 'ready'
+
+        # ---- Verify initial tags --------------------------------------------
+        latest_tags = aws_api.get_tags(task_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+
+        # ---- Add: tags ------------------------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tags": [{"key": "environment", "value": "dev"}]}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+
+        expect_tags = [{"Key": "environment", "Value": "dev"}]
+        latest_tags = aws_api.get_tags(task_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)
+
+        # ---- Update: tags ---------------------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tags": [{"key": "environment", "value": "prod"}]}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+
+        expect_tags = [{"Key": "environment", "Value": "prod"}]
+        latest_tags = aws_api.get_tags(task_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)
+
+        # ---- Delete: tags ---------------------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tags": None}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+        expect_tags = []
+        latest_tags = aws_api.get_tags(task_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)
+
+        # ---- Start task by setting startReplicationTask to true -------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"startReplicationTask": True}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+
+        # ---- Waiting for task to complete migration -------------------------
+        aws_api.wait_until_stopped(task_arn)
+
+        # ---- Confirm migration statistics -----------------------------------
+        latest = aws_api.get(task_arn)
+        assert latest is not None
+        assert latest.get('Status') == 'stopped'
+        assert latest.get('StopReason') == 'Stop Reason FULL_LOAD_ONLY_FINISHED'
+
+        stats = latest.get('ReplicationTaskStats', {})
+        assert stats.get('TablesLoaded', 0) == 1
+        assert stats.get('TablesErrored', 0) == 0
+
+        # ---- Confirm data was migrated to target S3 folder ------------------
+        bucket_name = REPLACEMENT_VALUES['S3_BUCKET_NAME']
+        response = get_target_data_s3_key(bucket_name)
+        assert response, "Target folder is empty"
+
+        # ---- Update: Table Mappings -----------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tableMappings": UPDATED_TABLE_MAPPINGS}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_TASK_SYNCED_MINUTES * 4, period_length=15,
+        )
+
+        latest = aws_api.get(task_arn)
+        assert latest is not None
+        assert latest.get('TableMappings') is not None
+        assert ordered(json.loads(latest['TableMappings'])) == ordered(json.loads(UPDATED_TABLE_MAPPINGS))

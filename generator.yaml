@@ -23,7 +23,7 @@ ignore:
     - ReplicationConfig
 #    - ReplicationInstance
 #    - ReplicationSubnetGroup
-    - ReplicationTask
+#    - ReplicationTask
 operations:
   ImportCertificate:
     resource_name: Certificate
@@ -654,6 +654,120 @@ resources:
           input_fields:
             ReplicationSubnetGroupDescription: Description
             ReplicationSubnetGroupIdentifier: Name
+  ReplicationTask:
+    deletable:
+      when:
+        - path: Status.TaskStatus
+          in:
+            - failed
+            - ready
+            - running
+            - stopped
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+      terminal_codes:
+        - InvalidParameterCombinationException
+        - InvalidParameterValueException
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      ReplicationInstanceARN:
+        is_immutable: true
+        references:
+          resource: ReplicationInstance
+          path: Status.ACKResourceMetadata.ARN
+      ResourceIdentifier:
+        is_immutable: true
+      SourceEndpointARN:
+        is_immutable: true
+        references:
+          resource: Endpoint
+          path: Status.ACKResourceMetadata.ARN
+      SourceEndpointConnectionStatus:
+        is_read_only: true
+        type: string
+      SourceEndpointConnectionLastFailureMessage:
+        is_read_only: true
+        type: string
+      StartReplicationTask:
+        type: bool
+      TargetEndpointARN:
+        is_immutable: true
+        references:
+          resource: Endpoint
+          path: Status.ACKResourceMetadata.ARN
+      TargetEndpointConnectionStatus:
+        is_read_only: true
+        type: string
+      TargetEndpointConnectionLastFailureMessage:
+        is_read_only: true
+        type: string
+      TaskStatus:
+        print:
+          name: Status
+      UpdateInProgress:
+        is_read_only: true
+        type: bool
+    hooks:
+      sdk_create_post_set_output:
+        template_path: hooks/replication_task/sdk_create_post_set_output.go.tpl
+      sdk_delete_post_request:
+        template_path: hooks/replication_task/sdk_delete_post_request.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/replication_task/sdk_delete_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/replication_task/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/replication_task/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/replication_task/sdk_update_pre_build_request.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/replication_task/sdk_update_post_set_output.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        CreateReplicationTask:
+          input_fields:
+            ReplicationTaskIdentifier: Name
+            ReplicationTaskSettings: TaskSettings
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
+        DescribeReplicationTasks:
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
+        ModifyReplicationTask:
+          output_fields:
+            ReplicationTaskCreationDate: CreationDate
+            ReplicationTaskStartDate: StartDate
+            ReplicationTaskStats: Stats
+            Status: TaskStatus
+    synced:
+      when:
+        - path: Status.TaskStatus
+          in:
+            - failed
+            - ready
+            - running
+            - stopped
+    updateable:
+      when:
+        - path: Status.TaskStatus
+          in:
+            - failed
+            - ready
+            - running
+            - stopped
 sdk_names:
   model_name: database-migration-service
   package_name: databasemigrationservice

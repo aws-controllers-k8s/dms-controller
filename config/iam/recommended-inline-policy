@@ -10,12 +10,15 @@
         "dms:CreateEventSubscription",
         "dms:CreateReplicationInstance",
         "dms:CreateReplicationSubnetGroup",
+        "dms:CreateReplicationTask",
         "dms:DeleteCertificate",
         "dms:DeleteEndpoint",
         "dms:DeleteEventSubscription",
         "dms:DeleteReplicationInstance",
         "dms:DeleteReplicationSubnetGroup",
+        "dms:DeleteReplicationTask",
         "dms:DescribeCertificates",
+        "dms:DescribeConnections",
         "dms:DescribeEndpoints",
         "dms:DescribeEventSubscriptions",
         "dms:DescribeReplicationInstances",
@@ -27,7 +30,10 @@
         "dms:ModifyEventSubscription",
         "dms:ModifyReplicationInstance",
         "dms:ModifyReplicationSubnetGroup",
-        "dms:RemoveTagsFromResource"
+        "dms:ModifyReplicationTask",
+        "dms:RemoveTagsFromResource",
+        "dms:StartReplicationTask",
+        "dms:StopReplicationTask"
       ],
       "Resource": "*"
     }
