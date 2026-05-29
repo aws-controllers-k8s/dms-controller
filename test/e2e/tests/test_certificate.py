@@ -18,7 +18,8 @@ Test scenarios
 * test_crud
     Create a Certificate from a PEM certificate stored in a Kubernetes Secret.
     Wait for it to become synced, verify the K8s CR status and the AWS API,
-    verify the initial tags, update tags and let the fixture handle deletion.
+    verify the initial tags, add/update/delete tags and let the fixture handle
+    deletion.
 """
 
 import datetime
@@ -31,12 +32,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from acktest import tags
+from acktest.k8s import condition
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_dms_resource
-from e2e import condition
 from e2e import certificate as aws_api
-from e2e import tag
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -170,9 +171,13 @@ class TestCertificate:
         1.  After creation the K8s CR has ``ACK.ResourceSynced=True`` and the
             DMS API reports the certificate as existing.
         2.  The AWS API matches the spec fields: identifier.
-        3.  The initial ``environment=dev`` tag is present in the AWS API.
-        4.  Tags can be updated from ``environment=dev`` to
+        3.  The initial ACK system tags are present in the AWS API.
+        4.  Tags can be added (``environment=dev``); the AWS API reflects the
+            new value.
+        5.  Tags can be updated from ``environment=dev`` to
             ``environment=prod``; the AWS API reflects the new value.
+        6.  Tags can be deleted by patching ``tags`` to ``None``; the AWS API
+            reflects only system tags with no user-defined tags remaining.
         """
         ref, cr, certificate_name = certificate
 
@@ -190,9 +195,27 @@ class TestCertificate:
         assert certificate_arn is not None
 
         # ---- Verify initial tags -------------------------------------------
+        latest_tags = aws_api.get_tags(certificate_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+
+        # ---- Add: tags ------------------------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tags": [{"key": "environment", "value": "dev"}]}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+        )
+
         expect_tags = [{"Key": "environment", "Value": "dev"}]
-        latest_tags = tag.clean(aws_api.get_tags(certificate_arn))
-        assert expect_tags == latest_tags
+        latest_tags = aws_api.get_tags(certificate_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)
 
         # ---- Update: tags ---------------------------------------------------
         k8s.patch_custom_resource(
@@ -206,5 +229,25 @@ class TestCertificate:
             wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
         )
 
-        latest_tags = tag.clean(aws_api.get_tags(certificate_arn))
-        assert latest_tags == [{"Key": "environment", "Value": "prod"}]
+        expect_tags = [{"Key": "environment", "Value": "prod"}]
+        latest_tags = aws_api.get_tags(certificate_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)
+
+        # ---- Delete: tags ---------------------------------------------------
+        k8s.patch_custom_resource(
+            ref,
+            {"spec": {"tags": None}},
+        )
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+        )
+        expect_tags = []
+        latest_tags = aws_api.get_tags(certificate_arn)
+        assert latest_tags is not None
+        tags.assert_ack_system_tags(latest_tags)
+        tags.assert_equal_without_ack_tags(expect_tags, latest_tags)

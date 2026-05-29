@@ -158,15 +158,13 @@ func (rm *resourceManager) sdkFind(
 	// sdk_read_many_post_set_output hook
 	//
 	// Retrieves the latest tags.
-	if ko.ObjectMeta.GetDeletionTimestamp() == nil {
-		if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
-			resourceARN := (*string)(ko.Status.ACKResourceMetadata.ARN)
-			tags, err := rm.getTags(ctx, *resourceARN)
-			if err != nil {
-				return nil, err
-			}
-			ko.Spec.Tags = tags
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		resourceARN := (*string)(ko.Status.ACKResourceMetadata.ARN)
+		tags, err := rm.getTags(ctx, *resourceARN)
+		if err != nil {
+			return nil, err
 		}
+		ko.Spec.Tags = tags
 	}
 
 	return &resource{ko}, nil
@@ -314,9 +312,6 @@ func (rm *resourceManager) newCreateRequestPayload(
 			f3elem := &svcsdktypes.Tag{}
 			if f3iter.Key != nil {
 				f3elem.Key = f3iter.Key
-			}
-			if f3iter.ResourceARN != nil {
-				f3elem.ResourceArn = f3iter.ResourceARN
 			}
 			if f3iter.Value != nil {
 				f3elem.Value = f3iter.Value

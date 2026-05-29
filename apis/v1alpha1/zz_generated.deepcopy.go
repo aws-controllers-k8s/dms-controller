@@ -4549,11 +4549,6 @@ func (in *Tag) DeepCopyInto(out *Tag) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.ResourceARN != nil {
-		in, out := &in.ResourceARN, &out.ResourceARN
-		*out = new(string)
-		**out = **in
-	}
 	if in.Value != nil {
 		in, out := &in.Value, &out.Value
 		*out = new(string)

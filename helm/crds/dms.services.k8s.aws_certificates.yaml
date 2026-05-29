@@ -143,8 +143,6 @@ spec:
                   properties:
                     key:
                       type: string
-                    resourceARN:
-                      type: string
                     value:
                       type: string
                   type: object

@@ -7,6 +7,3 @@ spec:
   certificatePem:
     name: $CERTIFICATE_SECRET_NAME
     key: $CERTIFICATE_SECRET_KEY
-  tags:
-    - key: environment
-      value: dev

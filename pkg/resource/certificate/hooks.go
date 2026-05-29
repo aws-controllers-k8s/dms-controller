@@ -26,22 +26,6 @@ import (
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"
 )
 
-// compareTags is a custom comparison function for comparing lists of Tag
-// structs where the order of the structs in the list is not important.
-func compareTags(
-	delta *ackcompare.Delta,
-	a *resource,
-	b *resource,
-) {
-	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
-		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
-	} else if len(a.ko.Spec.Tags) > 0 {
-		if !util.EqualTags(a.ko.Spec.Tags, b.ko.Spec.Tags) {
-			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
-		}
-	}
-}
-
 // getTags retrieves the resource's associated tags
 func (rm *resourceManager) getTags(
 	ctx context.Context,

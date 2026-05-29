@@ -1093,9 +1093,8 @@ type TableToReload struct {
 //
 //   - RemoveTagsFromResource
 type Tag struct {
-	Key         *string `json:"key,omitempty"`
-	ResourceARN *string `json:"resourceARN,omitempty"`
-	Value       *string `json:"value,omitempty"`
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
 }
 
 // Provides information that defines an Amazon Timestream endpoint.

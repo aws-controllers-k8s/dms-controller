@@ -41,7 +41,6 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
-	compareTags(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.CertificatePem, b.ko.Spec.CertificatePem) {
 		delta.Add("Spec.CertificatePem", a.ko.Spec.CertificatePem, b.ko.Spec.CertificatePem)
@@ -73,6 +72,11 @@ func newResourceDelta(
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 		}
+	}
+	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)
+	latestACKTags, _ := convertToOrderedACKTags(b.ko.Spec.Tags)
+	if !ackcompare.MapStringStringEqual(desiredACKTags, latestACKTags) {
+		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 	}
 
 	return delta
