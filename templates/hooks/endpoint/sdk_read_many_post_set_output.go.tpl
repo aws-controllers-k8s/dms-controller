@@ -1,22 +1,14 @@
 
 // sdk_read_many_post_set_output hook
 //
-// Retrieves the latest tags and replication tasks.
-if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+// Retrieves the latest tags.
+if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil && ko.ObjectMeta.GetDeletionTimestamp() == nil {
     resourceARN := (*string)(ko.Status.ACKResourceMetadata.ARN)
-    if ko.ObjectMeta.GetDeletionTimestamp() == nil {
-        tags, err := rm.getTags(ctx, *resourceARN)
-        if err != nil {
-            return nil, err
-        }
-        ko.Spec.Tags = tags
-    }
-
-    tasks, err := rm.getReplicationTasks(ctx, *resourceARN)
+    tags, err := rm.getTags(ctx, *resourceARN)
     if err != nil {
         return nil, err
     }
-    ko.Status.ReplicationTasks = tasks
+    ko.Spec.Tags = tags
 }
 
 // sdk_read_many_post_set_output hook

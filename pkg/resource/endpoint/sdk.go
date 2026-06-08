@@ -1248,22 +1248,14 @@ func (rm *resourceManager) sdkFind(
 
 	// sdk_read_many_post_set_output hook
 	//
-	// Retrieves the latest tags and replication tasks.
-	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+	// Retrieves the latest tags.
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil && ko.ObjectMeta.GetDeletionTimestamp() == nil {
 		resourceARN := (*string)(ko.Status.ACKResourceMetadata.ARN)
-		if ko.ObjectMeta.GetDeletionTimestamp() == nil {
-			tags, err := rm.getTags(ctx, *resourceARN)
-			if err != nil {
-				return nil, err
-			}
-			ko.Spec.Tags = tags
-		}
-
-		tasks, err := rm.getReplicationTasks(ctx, *resourceARN)
+		tags, err := rm.getTags(ctx, *resourceARN)
 		if err != nil {
 			return nil, err
 		}
-		ko.Status.ReplicationTasks = tasks
+		ko.Spec.Tags = tags
 	}
 
 	// sdk_read_many_post_set_output hook
@@ -3925,6 +3917,19 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+
+	// sdk_update_pre_build_request hook
+	//
+	// Sync the latest tags.
+	if delta.DifferentAt("Spec.Tags") {
+		if err = rm.syncTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags") {
+		return desired, nil
+	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
@@ -3940,15 +3945,6 @@ func (rm *resourceManager) sdkUpdate(
 	// Merge in the information we read from the API call above to the copy of
 	// the original Kubernetes object we passed to the function
 	ko := desired.ko.DeepCopy()
-
-	// sdk_update_pre_set_output hook
-	//
-	// Sync the latest tags.
-	if delta.DifferentAt("Spec.Tags") {
-		if err = rm.syncTags(ctx, desired, latest); err != nil {
-			return nil, err
-		}
-	}
 
 	if resp.Endpoint.CertificateArn != nil {
 		ko.Spec.CertificateARN = resp.Endpoint.CertificateArn
@@ -6524,8 +6520,8 @@ func (rm *resourceManager) sdkDelete(
 
 	// sdk_delete_pre_build_request hook
 	//
-	// Stop the replication task and make sure it is in a steady state
-	// before deleting it.
+	// Do not attempt to delete the endpoint if it is already in the
+	// process of being deleted.
 	if r.ko.Status.EndpointStatus != nil && *r.ko.Status.EndpointStatus == endpointStatusDeleting {
 		return r, ackrequeue.NeededAfter(
 			errors.New(fmt.Sprintf("Endpoint is in %v state", *r.ko.Status.EndpointStatus)),
@@ -6659,13 +6655,8 @@ func (rm *resourceManager) updateConditions(
 			recoverableCondition.Message = nil
 		}
 	}
-	if syncCondition == nil && onSuccess {
-		syncCondition = &ackv1alpha1.Condition{
-			Type:   ackv1alpha1.ConditionTypeResourceSynced,
-			Status: corev1.ConditionTrue,
-		}
-		ko.Status.Conditions = append(ko.Status.Conditions, syncCondition)
-	}
+	// Required to avoid the "declared but not used" error in the default case
+	_ = syncCondition
 	if terminalCondition != nil || recoverableCondition != nil || syncCondition != nil {
 		return &resource{ko}, true // updated
 	}

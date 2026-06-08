@@ -306,9 +306,6 @@ resources:
           resource: Role
           service_name: iam
           path: Status.ACKResourceMetadata.ARN
-      ReplicationTasks:
-        is_read_only: true
-        type: "map[string]*string"
       ResourceIdentifier:
         is_immutable: true
       S3Settings.BucketName:
@@ -356,15 +353,13 @@ resources:
         template_path: hooks/endpoint/sdk_read_many_post_build_request.go.tpl
       sdk_read_many_post_set_output:
         template_path: hooks/endpoint/sdk_read_many_post_set_output.go.tpl
-      sdk_update_pre_set_output:
-        template_path: hooks/endpoint/sdk_update_pre_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/endpoint/sdk_update_pre_build_request.go.tpl
       sdk_update_post_set_output:
         template_path: hooks/endpoint/sdk_update_post_set_output.go.tpl
     print:
       add_age_column: true
       add_synced_column: true
-    reconcile:
-      requeue_on_success_seconds: 300
     renames:
       operations:
         CreateEndpoint:
