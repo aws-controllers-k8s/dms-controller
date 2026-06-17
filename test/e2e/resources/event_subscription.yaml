@@ -6,6 +6,3 @@ spec:
   name: $EVENT_SUBSCRIPTION_NAME
   snsTopicARN: $SNS_TOPIC_ARN
   enabled: true
-  tags:
-    - key: environment
-      value: dev
