@@ -18,7 +18,6 @@ import (
 
 	svcapitypes "github.com/aws-controllers-k8s/dms-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/dms-controller/pkg/util"
-	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"

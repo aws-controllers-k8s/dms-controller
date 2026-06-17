@@ -11,7 +11,7 @@ ignore:
     - DataMigration
     - DataProvider
 #    - Endpoint
-    - EventSubscription
+#    - EventSubscription
     - FleetAdvisorCollector
     - InstanceProfile
     - MigrationProject
@@ -373,6 +373,66 @@ resources:
         ModifyEndpoint:
           output_fields:
             Status: EndpointStatus
+  EventSubscription:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      SNSTopicARN:
+        references:
+          resource: Topic
+          service_name: sns
+          path: Status.ACKResourceMetadata.ARN
+      SourceType:
+        print:
+          name: Source
+      SubscriptionStatus:
+        print:
+          name: Status
+    hooks:
+      sdk_read_many_post_set_output:
+        template_path: hooks/event_subscription/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/event_subscription/sdk_update_pre_build_request.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        CreateEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsId: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
+        DeleteEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+        DescribeEventSubscriptions:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsID: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
+        ModifyEventSubscription:
+          input_fields:
+            SubscriptionName: Name
+          output_fields:
+            CustomerAwsId: CustomerAccountID
+            CustSubscriptionId: Name
+            EventCategoriesList: EventCategories
+            SourceIdsList: SourceIds
+            Status: SubscriptionStatus
   ReplicationSubnetGroup:
     exceptions:
       errors:
