@@ -23,10 +23,6 @@ import (
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"
 )
 
-const (
-	eventSubscriptionStatusDeleting = "deleting"
-)
-
 // getTags retrieves the resource's associated tags
 func (rm *resourceManager) getTags(
 	ctx context.Context,

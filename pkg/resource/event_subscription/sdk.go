@@ -96,6 +96,11 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Spec.Name = nil
 		}
+		if elem.CustomerAwsId != nil {
+			ko.Status.CustomerAccountID = elem.CustomerAwsId
+		} else {
+			ko.Status.CustomerAccountID = nil
+		}
 		ko.Spec.Enabled = &elem.Enabled
 		if elem.EventCategoriesList != nil {
 			ko.Spec.EventCategories = aws.StringSlice(elem.EventCategoriesList)

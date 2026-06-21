@@ -111,6 +111,9 @@ spec:
                 items:
                   type: string
                 type: array
+                x-kubernetes-validations:
+                - message: Value is immutable once set
+                  rule: self == oldSelf
               sourceType:
                 description: |-
                   The type of DMS resource that generates the events. For example, if you want

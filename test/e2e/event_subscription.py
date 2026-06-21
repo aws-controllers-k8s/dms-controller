@@ -28,41 +28,6 @@ DEFAULT_WAIT_UNTIL_DELETED_INTERVAL_SECONDS = 10
 SubscriptionMatchFunc = typing.Callable[[dict | None], bool]
 
 
-class StatusMatcher:
-    """Callable that returns True when an EventSubscription matches a status."""
-
-    def __init__(self, status: str):
-        self.match_on = status
-
-    def __call__(self, record: dict | None) -> bool:
-        return (
-            record is not None
-            and 'Status' in record
-            and record['Status'] == self.match_on
-        )
-
-
-def status_matches(status: str) -> SubscriptionMatchFunc:
-    """Returns a match function that checks for the given status string."""
-    return StatusMatcher(status)
-
-
-def wait_until(
-    subscription_name: str,
-    match_fn: SubscriptionMatchFunc,
-    timeout_seconds: int = DEFAULT_WAIT_UNTIL_TIMEOUT_SECONDS,
-    interval_seconds: int = DEFAULT_WAIT_UNTIL_INTERVAL_SECONDS,
-) -> None:
-    """Waits until a DMS event subscription matches the supplied predicate."""
-    now = datetime.datetime.now()
-    timeout = now + datetime.timedelta(seconds=timeout_seconds)
-
-    while not match_fn(get(subscription_name)):
-        if datetime.datetime.now() >= timeout:
-            pytest.fail("Failed to match EventSubscription before timeout")
-        time.sleep(interval_seconds)
-
-
 def wait_until_deleted(
     subscription_name: str,
     timeout_seconds: int = DEFAULT_WAIT_UNTIL_DELETED_TIMEOUT_SECONDS,

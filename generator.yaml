@@ -387,6 +387,8 @@ resources:
           resource: Topic
           service_name: sns
           path: Status.ACKResourceMetadata.ARN
+      SourceIds:
+        is_immutable: true
       SourceType:
         print:
           name: Source
@@ -419,7 +421,7 @@ resources:
           input_fields:
             SubscriptionName: Name
           output_fields:
-            CustomerAwsID: CustomerAccountID
+            CustomerAwsId: CustomerAccountID
             CustSubscriptionId: Name
             EventCategoriesList: EventCategories
             SourceIdsList: SourceIds
