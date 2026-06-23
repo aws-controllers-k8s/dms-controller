@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
@@ -170,6 +171,16 @@ func (rm *resourceManager) sdkFind(
 			}
 			ko.Spec.Tags = tags
 		}
+	}
+
+	// sdk_read_many_post_set_output hook
+	//
+	// If the event subscription is not in a steady state, requeue more
+	// frequently.
+	if !hasSteadyState(ko) {
+		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse,
+			aws.String(fmt.Sprintf("EventSubscription is in %v state", *ko.Status.SubscriptionStatus)), nil)
+		return &resource{ko}, nil
 	}
 
 	return &resource{ko}, nil
@@ -343,6 +354,16 @@ func (rm *resourceManager) sdkUpdate(
 		return desired, nil
 	}
 
+	// sdk_update_pre_build_request hook
+	//
+	// Make sure the event subscription is in a steady state before updating
+	// it.
+	if !hasSteadyState(latest.ko) {
+		ackcondition.SetSynced(latest, corev1.ConditionFalse,
+			aws.String(fmt.Sprintf("EventSubscription is in %v state", *latest.ko.Status.SubscriptionStatus)), nil)
+		return latest, nil
+	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
@@ -443,6 +464,17 @@ func (rm *resourceManager) sdkDelete(
 	defer func() {
 		exit(err)
 	}()
+
+	// sdk_delete_pre_build_request hook
+	//
+	// Do not attempt to delete the event subscription if it is already in the
+	// process of being deleted.
+	if r.ko.Status.SubscriptionStatus != nil && *r.ko.Status.SubscriptionStatus == eventSubscriptionStatusDeleting {
+		return r, ackrequeue.NeededAfter(
+			errors.New(fmt.Sprintf("EventSubscription is in %v state", *r.ko.Status.SubscriptionStatus)),
+			10*time.Second)
+	}
+
 	input, err := rm.newDeleteRequestPayload(r)
 	if err != nil {
 		return nil, err
@@ -451,6 +483,19 @@ func (rm *resourceManager) sdkDelete(
 	_ = resp
 	resp, err = rm.sdkapi.DeleteEventSubscription(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteEventSubscription", err)
+
+	// sdk_delete_post_request hook
+	//
+	// Wait for the event subscription to be deleted before
+	// setResourceUnmanaged.
+	if err != nil {
+		return nil, err
+	}
+	r.ko.Status.SubscriptionStatus = aws.String(eventSubscriptionStatusDeleting)
+	return r, ackrequeue.NeededAfter(
+		errors.New(fmt.Sprintf("EventSubscription is in %v state", *r.ko.Status.SubscriptionStatus)),
+		10*time.Second)
+
 	return nil, err
 }
 

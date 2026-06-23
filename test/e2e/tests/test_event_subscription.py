@@ -42,7 +42,7 @@ from e2e.replacement_values import REPLACEMENT_VALUES
 
 RESOURCE_PLURAL = "eventsubscriptions"
 
-# DMS EventSubscriptions are created synchronously — wait for sync.
+# DMS EventSubscriptions are created asynchronously — wait for sync.
 MAX_WAIT_FOR_SYNCED_MINUTES = 5
 
 # Pause between patching and re-checking so the controller can reconcile.
@@ -107,7 +107,7 @@ def event_subscription(request):
     assert cr is not None
     assert k8s.get_resource_exists(ref)
 
-    # EventSubscriptions are created synchronously in DMS — wait for sync.
+    # EventSubscriptions are created asynchronously in DMS — wait for sync.
     assert k8s.wait_on_condition(
         ref, "ACK.ResourceSynced", "True",
         wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
