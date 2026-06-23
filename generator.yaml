@@ -439,6 +439,18 @@ resources:
             EventCategoriesList: EventCategories
             SourceIdsList: SourceIds
             Status: SubscriptionStatus
+    synced:
+      when:
+        - path: Status.SubscriptionStatus
+          in:
+            - active
+    updateable:
+      when:
+        - path: Status.SubscriptionStatus
+          in:
+            - active
+            - no-permission
+            - topic-not-exist
   ReplicationSubnetGroup:
     exceptions:
       errors:

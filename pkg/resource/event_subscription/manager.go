@@ -271,6 +271,14 @@ func (rm *resourceManager) IsSynced(ctx context.Context, res acktypes.AWSResourc
 		panic("resource manager's IsSynced() method received resource with nil CR object")
 	}
 
+	if r.ko.Status.SubscriptionStatus == nil {
+		return false, nil
+	}
+	subscriptionStatusCandidates := []string{"active"}
+	if !ackutil.InStrings(*r.ko.Status.SubscriptionStatus, subscriptionStatusCandidates) {
+		return false, nil
+	}
+
 	return true, nil
 }
 

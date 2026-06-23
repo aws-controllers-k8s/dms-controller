@@ -29,6 +29,7 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
+	ackutil "github.com/aws-controllers-k8s/runtime/pkg/util"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"
@@ -171,16 +172,6 @@ func (rm *resourceManager) sdkFind(
 			}
 			ko.Spec.Tags = tags
 		}
-	}
-
-	// sdk_read_many_post_set_output hook
-	//
-	// If the event subscription is not in a steady state, requeue more
-	// frequently.
-	if !hasSteadyState(ko) {
-		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse,
-			aws.String(fmt.Sprintf("EventSubscription is in %v state", *ko.Status.SubscriptionStatus)), nil)
-		return &resource{ko}, nil
 	}
 
 	return &resource{ko}, nil
@@ -354,14 +345,14 @@ func (rm *resourceManager) sdkUpdate(
 		return desired, nil
 	}
 
-	// sdk_update_pre_build_request hook
-	//
-	// Make sure the event subscription is in a steady state before updating
-	// it.
-	if !hasSteadyState(latest.ko) {
-		ackcondition.SetSynced(latest, corev1.ConditionFalse,
-			aws.String(fmt.Sprintf("EventSubscription is in %v state", *latest.ko.Status.SubscriptionStatus)), nil)
-		return latest, nil
+	if latest.ko.Status.SubscriptionStatus != nil {
+		if !ackutil.InStrings(*latest.ko.Status.SubscriptionStatus, []string{"active", "no-permission", "topic-not-exist"}) {
+			return nil, ackrequeue.NeededAfter(
+				fmt.Errorf("resource is in %s state, cannot be updated",
+					*latest.ko.Status.SubscriptionStatus),
+				time.Duration(30)*time.Second,
+			)
+		}
 	}
 
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

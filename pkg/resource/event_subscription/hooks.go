@@ -15,7 +15,6 @@ package event_subscription
 
 import (
 	"context"
-	"slices"
 
 	svcapitypes "github.com/aws-controllers-k8s/dms-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/dms-controller/pkg/util"
@@ -25,12 +24,7 @@ import (
 )
 
 const (
-	//eventSubscriptionStatusCreating = "creating"
-	//eventSubscriptionStatusModifying = "modifying"
-	eventSubscriptionStatusDeleting      = "deleting"
-	eventSubscriptionStatusActive        = "active"
-	eventSubscriptionStatusNoPermission  = "no-permission"
-	eventSubscriptionStatusTopicNotExist = "topic-not-exist"
+	eventSubscriptionStatusDeleting = "deleting"
 )
 
 // getTags retrieves the resource's associated tags
@@ -119,17 +113,4 @@ func sdkTagsFromResourceTags(
 		}
 	}
 	return tags
-}
-
-// hasSteadyState is a custom function to determine if an EventSubscription
-// is in a steady state.
-func hasSteadyState(ko *svcapitypes.EventSubscription) bool {
-	return ko.Status.SubscriptionStatus != nil && slices.Contains(
-		[]string{
-			eventSubscriptionStatusActive,
-			eventSubscriptionStatusNoPermission,
-			eventSubscriptionStatusTopicNotExist,
-		},
-		*ko.Status.SubscriptionStatus,
-	)
 }
