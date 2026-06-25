@@ -35,19 +35,24 @@ from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_dms_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e import replication_subnet_group as aws_api
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 RESOURCE_PLURAL = 'replicationsubnetgroups'
 
-# DMS ReplicationSubnetGroups are created synchronously — wait for sync.
+# DMS ReplicationSubnetGroups are created synchronously.
 MAX_WAIT_FOR_SYNCED_MINUTES = 5
 
 # Pause between patching and re-checking so the controller can reconcile.
 MODIFY_WAIT_AFTER_SECONDS = 10
 
 SUBNET_GROUP_DESC = "my-replication-subnet-group description"
+
+
+# -----------------------------------------------------------------------------
+# Fixture
+# -----------------------------------------------------------------------------
 
 @pytest.fixture
 def subnet_group(request):
@@ -107,22 +112,13 @@ def subnet_group(request):
     k8s.create_custom_resource(ref, resource_data)
     cr = k8s.wait_resource_consumed_by_controller(ref)
 
-    assert cr is not None
-    assert k8s.get_resource_exists(ref)
-
-    # ReplicationSubnetGroups are created synchronously in DMS — wait for sync.
-    assert k8s.wait_on_condition(
-        ref, "ACK.ResourceSynced", "True",
-        wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
-    )
-
     yield ref, cr, subnet_group_name
 
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Test class
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 @service_marker
 class TestReplicationSubnetGroup:
@@ -141,8 +137,13 @@ class TestReplicationSubnetGroup:
         """
         ref, cr, subnet_group_name = subnet_group
 
-        # ---- Verify create / read ------------------------------------------
-        condition.assert_synced(ref)
+        # ---- Verify create / read -------------------------------------------
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+        )
 
         latest = aws_api.get(subnet_group_name)
         assert latest is not None
@@ -154,7 +155,7 @@ class TestReplicationSubnetGroup:
         subnet_group_arn = k8s.get_resource_arn(cr)
         assert subnet_group_arn is not None
 
-        # ---- Verify initial tags -------------------------------------------
+        # ---- Verify initial tags --------------------------------------------
         latest_tags = aws_api.get_tags(subnet_group_arn)
         assert latest_tags is not None
         tags.assert_ack_system_tags(latest_tags)
