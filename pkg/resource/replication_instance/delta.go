@@ -42,6 +42,23 @@ func newResourceDelta(
 		return delta
 	}
 
+	// delta_pre_compare hook
+	//
+	// When autoMinorVersionUpgrade is enabled and the engine version
+	// difference is only a minor version change (same major version),
+	// normalize the desired engine version to match the latest. This
+	// prevents the delta from firing on every reconcile when AWS
+	// auto-upgrades the minor version.
+	if a.ko.Spec.EngineVersion != nil && b.ko.Spec.EngineVersion != nil {
+		autoMinorVersionUpgrade := true
+		if a.ko.Spec.AutoMinorVersionUpgrade != nil {
+			autoMinorVersionUpgrade = *a.ko.Spec.AutoMinorVersionUpgrade
+		}
+		if !requiresEngineVersionUpdate(a.ko.Spec.EngineVersion, b.ko.Spec.EngineVersion, autoMinorVersionUpgrade) {
+			a.ko.Spec.EngineVersion = b.ko.Spec.EngineVersion
+		}
+	}
+
 	if ackcompare.HasNilDifference(a.ko.Spec.AllocatedStorage, b.ko.Spec.AllocatedStorage) {
 		delta.Add("Spec.AllocatedStorage", a.ko.Spec.AllocatedStorage, b.ko.Spec.AllocatedStorage)
 	} else if a.ko.Spec.AllocatedStorage != nil && b.ko.Spec.AllocatedStorage != nil {
@@ -61,6 +78,13 @@ func newResourceDelta(
 	} else if a.ko.Spec.DNSNameServers != nil && b.ko.Spec.DNSNameServers != nil {
 		if *a.ko.Spec.DNSNameServers != *b.ko.Spec.DNSNameServers {
 			delta.Add("Spec.DNSNameServers", a.ko.Spec.DNSNameServers, b.ko.Spec.DNSNameServers)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.EngineVersion, b.ko.Spec.EngineVersion) {
+		delta.Add("Spec.EngineVersion", a.ko.Spec.EngineVersion, b.ko.Spec.EngineVersion)
+	} else if a.ko.Spec.EngineVersion != nil && b.ko.Spec.EngineVersion != nil {
+		if *a.ko.Spec.EngineVersion != *b.ko.Spec.EngineVersion {
+			delta.Add("Spec.EngineVersion", a.ko.Spec.EngineVersion, b.ko.Spec.EngineVersion)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.InstanceClass, b.ko.Spec.InstanceClass) {

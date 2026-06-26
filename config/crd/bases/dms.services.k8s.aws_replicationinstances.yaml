@@ -108,8 +108,36 @@ spec:
                 properties:
                   keyCacheSecretIAMARN:
                     type: string
+                  keyCacheSecretIAMRef:
+                    description: Reference field for KeyCacheSecretIAMARN
+                    properties:
+                      from:
+                        description: |-
+                          AWSResourceReference provides all the values necessary to reference another
+                          k8s resource for finding the identifier(Id/ARN/Name)
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
+                    type: object
                   keyCacheSecretID:
                     type: string
+                  keyCacheSecretRef:
+                    description: Reference field for KeyCacheSecretID
+                    properties:
+                      from:
+                        description: |-
+                          AWSResourceReference provides all the values necessary to reference another
+                          k8s resource for finding the identifier(Id/ARN/Name)
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
+                    type: object
                   krb5FileContents:
                     type: string
                 type: object

@@ -548,8 +548,12 @@ type KafkaSettings struct {
 // the replication instance.
 type KerberosAuthenticationSettings struct {
 	KeyCacheSecretIAMARN *string `json:"keyCacheSecretIAMARN,omitempty"`
-	KeyCacheSecretID     *string `json:"keyCacheSecretID,omitempty"`
-	Krb5FileContents     *string `json:"krb5FileContents,omitempty"`
+	// Reference field for KeyCacheSecretIAMARN
+	KeyCacheSecretIAMRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"keyCacheSecretIAMRef,omitempty"`
+	KeyCacheSecretID     *string                                  `json:"keyCacheSecretID,omitempty"`
+	// Reference field for KeyCacheSecretID
+	KeyCacheSecretRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"keyCacheSecretRef,omitempty"`
+	Krb5FileContents  *string                                  `json:"krb5FileContents,omitempty"`
 }
 
 // Provides information that describes an Amazon Kinesis Data Stream endpoint.

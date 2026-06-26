@@ -908,7 +908,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 
 	if r.ko.Status.InstanceStatus != nil {
-		if !ackutil.InStrings(*r.ko.Status.InstanceStatus, []string{"available"}) {
+		if !ackutil.InStrings(*r.ko.Status.InstanceStatus, []string{"available", "failed", "incompatible-credentials", "incompatible-network", "maintenance", "storage-full"}) {
 			return nil, ackrequeue.NeededAfter(
 				fmt.Errorf("resource is in %s state, cannot be deleted",
 					*r.ko.Status.InstanceStatus),

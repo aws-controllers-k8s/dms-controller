@@ -15,6 +15,7 @@ package replication_instance
 
 import (
 	"context"
+	"regexp"
 
 	svcapitypes "github.com/aws-controllers-k8s/dms-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/dms-controller/pkg/util"
@@ -26,6 +27,8 @@ import (
 const (
 	replicationInstanceStatusDeleting = "deleting"
 )
+
+var r = regexp.MustCompile(`^[0-9]+`)
 
 // getTags retrieves the resource's associated tags
 func (rm *resourceManager) getTags(
@@ -127,4 +130,12 @@ func hasPendingModifiedValues(ko *svcapitypes.ReplicationInstance) bool {
 		pmv.MultiAZ != nil ||
 		pmv.NetworkType != nil ||
 		pmv.ReplicationInstanceClass != nil
+}
+
+// requiresEngineVersionUpdate returns true if the ReplicationInstance requires
+// an engine version update.
+func requiresEngineVersionUpdate(desiredEngineVersion *string, latestEngineVersion *string, autoMinorVersionUpgrade bool) bool {
+	desiredMajorEngineVersion := r.FindString(*desiredEngineVersion)
+	latestMajorEngineVersion := r.FindString(*latestEngineVersion)
+	return !autoMinorVersionUpgrade || desiredMajorEngineVersion != latestMajorEngineVersion
 }

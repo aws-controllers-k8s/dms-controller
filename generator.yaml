@@ -481,6 +481,11 @@ resources:
         - path: Status.InstanceStatus
           in:
             - available
+            - failed
+            - incompatible-credentials
+            - incompatible-network
+            - maintenance
+            - storage-full
     exceptions:
       errors:
         404:
@@ -496,12 +501,19 @@ resources:
           is_ignored: true
       DNSNameServers:
         is_immutable: true
-      EngineVersion:
-        compare:
-          is_ignored: true
       InstanceStatus:
         print:
           name: Status
+      KerberosAuthenticationSettings.KeyCacheSecretIamArn:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      KerberosAuthenticationSettings.KeyCacheSecretId:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
       KMSKeyID:
         is_immutable: true
         references:
@@ -528,6 +540,8 @@ resources:
           resource: SecurityGroup
           path: Status.ID
     hooks:
+      delta_pre_compare:
+        template_path: hooks/replication_instance/delta_pre_compare.go.tpl
       sdk_delete_post_request:
         template_path: hooks/replication_instance/sdk_delete_post_request.go.tpl
       sdk_delete_pre_build_request:

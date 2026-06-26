@@ -2758,10 +2758,20 @@ func (in *KerberosAuthenticationSettings) DeepCopyInto(out *KerberosAuthenticati
 		*out = new(string)
 		**out = **in
 	}
+	if in.KeyCacheSecretIAMRef != nil {
+		in, out := &in.KeyCacheSecretIAMRef, &out.KeyCacheSecretIAMRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.KeyCacheSecretID != nil {
 		in, out := &in.KeyCacheSecretID, &out.KeyCacheSecretID
 		*out = new(string)
 		**out = **in
+	}
+	if in.KeyCacheSecretRef != nil {
+		in, out := &in.KeyCacheSecretRef, &out.KeyCacheSecretRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Krb5FileContents != nil {
 		in, out := &in.Krb5FileContents, &out.Krb5FileContents
