@@ -49,6 +49,7 @@ import (
 	_ "github.com/aws-controllers-k8s/dms-controller/pkg/resource/certificate"
 	_ "github.com/aws-controllers-k8s/dms-controller/pkg/resource/endpoint"
 	_ "github.com/aws-controllers-k8s/dms-controller/pkg/resource/event_subscription"
+	_ "github.com/aws-controllers-k8s/dms-controller/pkg/resource/replication_instance"
 	_ "github.com/aws-controllers-k8s/dms-controller/pkg/resource/replication_subnet_group"
 
 	"github.com/aws-controllers-k8s/dms-controller/pkg/version"

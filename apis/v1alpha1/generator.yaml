@@ -6,6 +6,11 @@ ignore:
     # It is not used in our tagging logic and could result in confusing
     # mutations of other resources.
     - Tag.ResourceArn
+    # We ignore the following fields because they bloat the Status object
+    # and contain information from other ACK resources which can be
+    # obtained directly.
+    - ReplicationInstance.VpcSecurityGroups
+    - ReplicationInstance.ReplicationSubnetGroup
   resource_names:
 #    - Certificate
     - DataMigration
@@ -16,13 +21,32 @@ ignore:
     - InstanceProfile
     - MigrationProject
     - ReplicationConfig
-    - ReplicationInstance
+#    - ReplicationInstance
 #    - ReplicationSubnetGroup
     - ReplicationTask
 operations:
   ImportCertificate:
     resource_name: Certificate
     operation_type: CREATE
+  ModifyReplicationInstance:
+    override_values:
+      # The whole concept of a "maintenance window" isn't aligned with the
+      # declarative state model in Kubernetes. Users should build "maintenance
+      # window" functionality at a higher layer than the APIs that manage the
+      # lifecycle of individual resources like a replication instance. For
+      # example, users can build maintenance window functionality into their
+      # deployment pipeline solution or GitOps solution.
+      #
+      # We override the value of the ApplyImmediately field in the modify
+      # operations to "true" because we want changes that a Kubernetes user
+      # makes to a resource's Spec to be reconciled by the ACK service
+      # controller, not a different service.
+      ApplyImmediately: true
+      # We override the value of AllowMajorVersionUpgrade field in the modify
+      # call since any engine version change should apply directly.
+      # This flag was designed as a protect flag but not necessary in controller
+      # side when customer need to make the engine version change
+      AllowMajorVersionUpgrade: true
 resources:
   Certificate:
     exceptions:
@@ -451,6 +475,141 @@ resources:
             - active
             - no-permission
             - topic-not-exist
+  ReplicationInstance:
+    deletable:
+      when:
+        - path: Status.InstanceStatus
+          in:
+            - available
+            - failed
+            - incompatible-credentials
+            - incompatible-network
+            - maintenance
+            - storage-full
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundFault
+      terminal_codes:
+        - InvalidParameterCombinationException
+        - InvalidParameterValueException
+    fields:
+      AvailabilityZone:
+        # Can only be set at creation time, but may change when MultiAZ is
+        # enabled and failover occurs.
+        compare:
+          is_ignored: true
+      DNSNameServers:
+        is_immutable: true
+      InstanceStatus:
+        print:
+          name: Status
+      KerberosAuthenticationSettings.KeyCacheSecretIamArn:
+        references:
+          resource: Role
+          service_name: iam
+          path: Status.ACKResourceMetadata.ARN
+      KerberosAuthenticationSettings.KeyCacheSecretId:
+        references:
+          resource: Secret
+          service_name: secretsmanager
+          path: Status.ACKResourceMetadata.ARN
+      KMSKeyID:
+        is_immutable: true
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.KeyID
+      Name:
+        compare:
+          is_ignored: true
+        is_primary_key: true
+        is_immutable: true
+      PubliclyAccessible:
+        is_immutable: true
+      ResourceIdentifier:
+        is_immutable: true
+      SubnetGroupID:
+        is_immutable: true
+        references:
+          resource: ReplicationSubnetGroup
+          path: Spec.Name
+      SecurityGroupIDs:
+        references:
+          service_name: ec2
+          resource: SecurityGroup
+          path: Status.ID
+    hooks:
+      delta_pre_compare:
+        template_path: hooks/replication_instance/delta_pre_compare.go.tpl
+      sdk_delete_post_request:
+        template_path: hooks/replication_instance/sdk_delete_post_request.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/replication_instance/sdk_delete_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/replication_instance/sdk_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/replication_instance/sdk_read_many_post_set_output.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/replication_instance/sdk_update_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/replication_instance/sdk_update_pre_build_request.go.tpl
+    print:
+      add_age_column: true
+      add_synced_column: true
+    renames:
+      operations:
+        CreateReplicationInstance:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+        DescribeReplicationInstances:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+        ModifyReplicationInstance:
+          input_fields:
+            ReplicationInstanceClass: InstanceClass
+            ReplicationInstanceIdentifier: Name
+            ReplicationSubnetGroupIdentifier: SubnetGroupID
+            VpcSecurityGroupIds: SecurityGroupIDs
+          output_fields:
+            ReplicationInstanceIpv6Addresses: IPv6Addresses
+            ReplicationInstancePrivateIpAddress: PrivateIPAddress
+            ReplicationInstancePrivateIpAddresses: PrivateIPAddresses
+            ReplicationInstancePublicIpAddress: PublicIPAddress
+            ReplicationInstancePublicIpAddresses: PublicIPAddresses
+            ReplicationInstanceStatus: InstanceStatus
+    synced:
+      when:
+        - path: Status.InstanceStatus
+          in:
+            - available
+    update_operation:
+      omit_unchanged_fields: true
+    updateable:
+      when:
+        - path: Status.InstanceStatus
+          in:
+            - available
   ReplicationSubnetGroup:
     exceptions:
       errors:

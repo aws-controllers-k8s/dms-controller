@@ -153,6 +153,7 @@ reconcile:
     - Certificate
     - Endpoint
     - EventSubscription
+    - ReplicationInstance
     - ReplicationSubnetGroup
 
 serviceAccount:

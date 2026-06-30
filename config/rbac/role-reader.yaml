@@ -12,6 +12,7 @@ rules:
   - certificates
   - endpoints
   - eventsubscriptions
+  - replicationinstances
   - replicationsubnetgroups
   verbs:
   - get

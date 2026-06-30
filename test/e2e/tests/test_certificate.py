@@ -39,9 +39,9 @@ from acktest.resources import random_suffix_name
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_dms_resource
 from e2e import certificate as aws_api
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 RESOURCE_PLURAL = "certificates"
 
@@ -53,6 +53,10 @@ MODIFY_WAIT_AFTER_SECONDS = 10
 
 SECRET_KEY = "certificate.pem"
 
+
+# -----------------------------------------------------------------------------
+# Fixture
+# -----------------------------------------------------------------------------
 
 def _generate_self_signed_cert_pem() -> str:
     """Generates a minimal self-signed RSA certificate and returns it as a
@@ -75,9 +79,9 @@ def _generate_self_signed_cert_pem() -> str:
     return cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Fixture
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 @pytest.fixture
 def certificate(request):
@@ -144,22 +148,13 @@ def certificate(request):
     k8s.create_custom_resource(ref, resource_data)
     cr = k8s.wait_resource_consumed_by_controller(ref)
 
-    assert cr is not None
-    assert k8s.get_resource_exists(ref)
-
-    # Certificates are created synchronously in DMS — wait for sync.
-    assert k8s.wait_on_condition(
-        ref, "ACK.ResourceSynced", "True",
-        wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
-    )
-
     yield ref, cr, certificate_name
 
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Test class
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 @service_marker
 class TestCertificate:
@@ -181,8 +176,13 @@ class TestCertificate:
         """
         ref, cr, certificate_name = certificate
 
-        # ---- Verify create / read ------------------------------------------
-        condition.assert_synced(ref)
+        # ---- Verify create / read -------------------------------------------
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+        )
 
         latest = aws_api.get(certificate_name)
         assert latest is not None
@@ -194,7 +194,7 @@ class TestCertificate:
         certificate_arn = k8s.get_resource_arn(cr)
         assert certificate_arn is not None
 
-        # ---- Verify initial tags -------------------------------------------
+        # ---- Verify initial tags --------------------------------------------
         latest_tags = aws_api.get_tags(certificate_arn)
         assert latest_tags is not None
         tags.assert_ack_system_tags(latest_tags)

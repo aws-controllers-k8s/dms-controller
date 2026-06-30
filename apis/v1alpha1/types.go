@@ -548,8 +548,12 @@ type KafkaSettings struct {
 // the replication instance.
 type KerberosAuthenticationSettings struct {
 	KeyCacheSecretIAMARN *string `json:"keyCacheSecretIAMARN,omitempty"`
-	KeyCacheSecretID     *string `json:"keyCacheSecretID,omitempty"`
-	Krb5FileContents     *string `json:"krb5FileContents,omitempty"`
+	// Reference field for KeyCacheSecretIAMARN
+	KeyCacheSecretIAMRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"keyCacheSecretIAMRef,omitempty"`
+	KeyCacheSecretID     *string                                  `json:"keyCacheSecretID,omitempty"`
+	// Reference field for KeyCacheSecretID
+	KeyCacheSecretRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"keyCacheSecretRef,omitempty"`
+	Krb5FileContents  *string                                  `json:"krb5FileContents,omitempty"`
 }
 
 // Provides information that describes an Amazon Kinesis Data Stream endpoint.
@@ -827,6 +831,7 @@ type OrderableReplicationInstance struct {
 	IncludedAllocatedStorage *int64  `json:"includedAllocatedStorage,omitempty"`
 	MaxAllocatedStorage      *int64  `json:"maxAllocatedStorage,omitempty"`
 	MinAllocatedStorage      *int64  `json:"minAllocatedStorage,omitempty"`
+	ReplicationInstanceClass *string `json:"replicationInstanceClass,omitempty"`
 	StorageType              *string `json:"storageType,omitempty"`
 }
 
@@ -1086,45 +1091,54 @@ type ReplicationConfig struct {
 	TargetEndpointARN           *string      `json:"targetEndpointARN,omitempty"`
 }
 
-// Provides information that defines a replication instance.
-type ReplicationInstance struct {
-	AllocatedStorage                    *int64       `json:"allocatedStorage,omitempty"`
-	AutoMinorVersionUpgrade             *bool        `json:"autoMinorVersionUpgrade,omitempty"`
-	AvailabilityZone                    *string      `json:"availabilityZone,omitempty"`
-	DNSNameServers                      *string      `json:"dnsNameServers,omitempty"`
-	EngineVersion                       *string      `json:"engineVersion,omitempty"`
-	FreeUntil                           *metav1.Time `json:"freeUntil,omitempty"`
-	InstanceCreateTime                  *metav1.Time `json:"instanceCreateTime,omitempty"`
-	KMSKeyID                            *string      `json:"kmsKeyID,omitempty"`
-	MultiAZ                             *bool        `json:"multiAZ,omitempty"`
-	NetworkType                         *string      `json:"networkType,omitempty"`
-	PreferredMaintenanceWindow          *string      `json:"preferredMaintenanceWindow,omitempty"`
-	PubliclyAccessible                  *bool        `json:"publiclyAccessible,omitempty"`
-	ReplicationInstanceARN              *string      `json:"replicationInstanceARN,omitempty"`
-	ReplicationInstanceIdentifier       *string      `json:"replicationInstanceIdentifier,omitempty"`
-	ReplicationInstancePrivateIPAddress *string      `json:"replicationInstancePrivateIPAddress,omitempty"`
-	ReplicationInstancePublicIPAddress  *string      `json:"replicationInstancePublicIPAddress,omitempty"`
-	ReplicationInstanceStatus           *string      `json:"replicationInstanceStatus,omitempty"`
-	// Describes a subnet group in response to a request by the DescribeReplicationSubnetGroups
-	// operation.
-	ReplicationSubnetGroup    *ReplicationSubnetGroup_SDK `json:"replicationSubnetGroup,omitempty"`
-	SecondaryAvailabilityZone *string                     `json:"secondaryAvailabilityZone,omitempty"`
-}
-
 // Contains metadata for a replication instance task log.
 type ReplicationInstanceTaskLog struct {
 	ReplicationTaskARN  *string `json:"replicationTaskARN,omitempty"`
 	ReplicationTaskName *string `json:"replicationTaskName,omitempty"`
 }
 
+// Provides information that defines a replication instance.
+type ReplicationInstance_SDK struct {
+	AllocatedStorage        *int64       `json:"allocatedStorage,omitempty"`
+	AutoMinorVersionUpgrade *bool        `json:"autoMinorVersionUpgrade,omitempty"`
+	AvailabilityZone        *string      `json:"availabilityZone,omitempty"`
+	DNSNameServers          *string      `json:"dnsNameServers,omitempty"`
+	EngineVersion           *string      `json:"engineVersion,omitempty"`
+	FreeUntil               *metav1.Time `json:"freeUntil,omitempty"`
+	InstanceCreateTime      *metav1.Time `json:"instanceCreateTime,omitempty"`
+	// Specifies the settings required for kerberos authentication when creating
+	// the replication instance.
+	KerberosAuthenticationSettings *KerberosAuthenticationSettings `json:"kerberosAuthenticationSettings,omitempty"`
+	KMSKeyID                       *string                         `json:"kmsKeyID,omitempty"`
+	MultiAZ                        *bool                           `json:"multiAZ,omitempty"`
+	NetworkType                    *string                         `json:"networkType,omitempty"`
+	// Provides information about the values of pending modifications to a replication
+	// instance. This data type is an object of the ReplicationInstance (https://docs.aws.amazon.com/dms/latest/APIReference/API_ReplicationInstance.html)
+	// user-defined data type.
+	PendingModifiedValues                 *ReplicationPendingModifiedValues `json:"pendingModifiedValues,omitempty"`
+	PreferredMaintenanceWindow            *string                           `json:"preferredMaintenanceWindow,omitempty"`
+	PubliclyAccessible                    *bool                             `json:"publiclyAccessible,omitempty"`
+	ReplicationInstanceARN                *string                           `json:"replicationInstanceARN,omitempty"`
+	ReplicationInstanceClass              *string                           `json:"replicationInstanceClass,omitempty"`
+	ReplicationInstanceIdentifier         *string                           `json:"replicationInstanceIdentifier,omitempty"`
+	ReplicationInstanceIPv6Addresses      []*string                         `json:"replicationInstanceIPv6Addresses,omitempty"`
+	ReplicationInstancePrivateIPAddress   *string                           `json:"replicationInstancePrivateIPAddress,omitempty"`
+	ReplicationInstancePrivateIPAddresses []*string                         `json:"replicationInstancePrivateIPAddresses,omitempty"`
+	ReplicationInstancePublicIPAddress    *string                           `json:"replicationInstancePublicIPAddress,omitempty"`
+	ReplicationInstancePublicIPAddresses  []*string                         `json:"replicationInstancePublicIPAddresses,omitempty"`
+	ReplicationInstanceStatus             *string                           `json:"replicationInstanceStatus,omitempty"`
+	SecondaryAvailabilityZone             *string                           `json:"secondaryAvailabilityZone,omitempty"`
+}
+
 // Provides information about the values of pending modifications to a replication
 // instance. This data type is an object of the ReplicationInstance (https://docs.aws.amazon.com/dms/latest/APIReference/API_ReplicationInstance.html)
 // user-defined data type.
 type ReplicationPendingModifiedValues struct {
-	AllocatedStorage *int64  `json:"allocatedStorage,omitempty"`
-	EngineVersion    *string `json:"engineVersion,omitempty"`
-	MultiAZ          *bool   `json:"multiAZ,omitempty"`
-	NetworkType      *string `json:"networkType,omitempty"`
+	AllocatedStorage         *int64  `json:"allocatedStorage,omitempty"`
+	EngineVersion            *string `json:"engineVersion,omitempty"`
+	MultiAZ                  *bool   `json:"multiAZ,omitempty"`
+	NetworkType              *string `json:"networkType,omitempty"`
+	ReplicationInstanceClass *string `json:"replicationInstanceClass,omitempty"`
 }
 
 // This object provides a collection of statistics about a serverless replication.

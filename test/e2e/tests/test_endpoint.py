@@ -37,9 +37,9 @@ from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_dms_resource
 from e2e import endpoint as aws_api
 from e2e.replacement_values import REPLACEMENT_VALUES
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 RESOURCE_PLURAL = "endpoints"
 
@@ -53,9 +53,9 @@ INITIAL_BUCKET_FOLDER = "ack-initial"
 UPDATED_BUCKET_FOLDER = "ack-updated"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Fixture
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 @pytest.fixture
 def endpoint(request):
@@ -109,22 +109,13 @@ def endpoint(request):
     k8s.create_custom_resource(ref, resource_data)
     cr = k8s.wait_resource_consumed_by_controller(ref)
 
-    assert cr is not None
-    assert k8s.get_resource_exists(ref)
-
-    # S3 target endpoints reach active status synchronously — wait for sync.
-    assert k8s.wait_on_condition(
-        ref, "ACK.ResourceSynced", "True",
-        wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
-    )
-
     yield ref, cr, endpoint_name
 
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Test class
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 @service_marker
 class TestEndpoint:
@@ -147,8 +138,13 @@ class TestEndpoint:
         """
         ref, cr, endpoint_name = endpoint
 
-        # ---- Verify create / read ------------------------------------------
-        condition.assert_synced(ref)
+        # ---- Verify create / read -------------------------------------------
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+        assert k8s.wait_on_condition(
+            ref, "ACK.ResourceSynced", "True",
+            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+        )
 
         latest = aws_api.get(endpoint_name)
         assert latest is not None
@@ -158,13 +154,12 @@ class TestEndpoint:
         assert latest['Status'] == 'active'
         assert latest.get('S3Settings', {}).get('BucketFolder') == INITIAL_BUCKET_FOLDER
 
-        # ARN is written into the CR status by the controller.
         cr = k8s.get_resource(ref)
         assert cr is not None
         endpoint_arn = k8s.get_resource_arn(cr)
         assert endpoint_arn is not None
 
-        # ---- Verify initial tags -------------------------------------------
+        # ---- Verify initial tags --------------------------------------------
         latest_tags = aws_api.get_tags(endpoint_arn)
         assert latest_tags is not None
         tags.assert_ack_system_tags(latest_tags)
