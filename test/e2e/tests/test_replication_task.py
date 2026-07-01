@@ -133,10 +133,10 @@ def replication_task_fixture(request):
 
     This is a composite fixture that creates resources in dependency order:
     1. Upload sample csv data to S3 source folder
-    2. Create replication subnet group
-    3. Create replication instance
-    4. Create source S3 endpoint
-    5. Create target S3 endpoint
+    2. Create source S3 endpoint
+    3. Create target S3 endpoint
+    4. Create replication subnet group
+    5. Create replication instance
     6. Create ReplicationTask CR
 
     Yields:
@@ -359,9 +359,9 @@ def replication_task_fixture(request):
 
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Test Class
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @service_marker
@@ -373,15 +373,15 @@ class TestReplicationTask:
         Checks:
         1. After creation, K8s CR has ACK.ResourceSynced=True and DMS API
            reports task in ready state.
-        2. All spec fields are synced to AWS API.
-        3. Task ARN is populated in CR status.
-        4. Initial tags are applied.
-        5. Task starts running when startReplicationTask=true.
-        6. Task completes migration (reaches stopped state).
-        7. Data is migrated to target S3 folder.
-        8. Table mappings can be updated; AWS API reflects the change.
-        9. Tags can be updated; AWS API reflects the change.
-        10. Task can be deleted cleanly.
+        2. Task ARN is populated in CR status.
+        3. Initial (ACK system) tags are applied.
+        4. Tags can be added; AWS API reflects the change.
+        5. Tags can be updated; AWS API reflects the change.
+        6. Tags can be deleted; AWS API reflects the change.
+        7. Task starts running when startReplicationTask=true.
+        8. Task completes migration (reaches stopped state).
+        9. Data is migrated to target S3 folder.
+        10. Table mappings can be updated; AWS API reflects the change.
         """
         ref, cr, task_name = replication_task_fixture
 

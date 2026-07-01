@@ -21,6 +21,7 @@ rules:
   - eventsubscriptions
   - replicationinstances
   - replicationsubnetgroups
+  - replicationtasks
   verbs:
   - create
   - delete
@@ -37,6 +38,7 @@ rules:
   - eventsubscriptions
   - replicationinstances
   - replicationsubnetgroups
+  - replicationtasks
   verbs:
   - get
   - patch
