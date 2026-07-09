@@ -493,12 +493,6 @@ spec:
                      of primary key definitions and likely issues with database migration performance,
                      among others.
                 type: string
-              updateInProgress:
-                description: |-
-                  Indicates whether the replication task is in the process of being updated.
-                  This field is used as a guard in the reconcile loop to prevent the
-                  replication task from being started while an update is pending.
-                type: boolean
             type: object
         type: object
     served: true

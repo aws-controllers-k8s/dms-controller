@@ -75,8 +75,3 @@ resources:
       TargetEndpointRef:
         prepend: |-
           Reference to an ACK managed target endpoint resource for this replication task.
-      UpdateInProgress:
-        override: |-
-          Indicates whether the replication task is in the process of being updated.
-          This field is used as a guard in the reconcile loop to prevent the
-          replication task from being started while an update is pending.

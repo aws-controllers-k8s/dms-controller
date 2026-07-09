@@ -705,13 +705,18 @@ resources:
       TargetEndpointConnectionLastFailureMessage:
         is_read_only: true
         type: string
+      TaskData:
+        is_document: true
+      TaskSettings:
+        is_document: true
       TaskStatus:
         print:
           name: Status
-      UpdateInProgress:
-        is_read_only: true
-        type: bool
     hooks:
+      delta_post_compare:
+        template_path: hooks/replication_task/delta_post_compare.go.tpl
+      delta_pre_compare:
+        template_path: hooks/replication_task/delta_pre_compare.go.tpl
       sdk_create_post_set_output:
         template_path: hooks/replication_task/sdk_create_post_set_output.go.tpl
       sdk_delete_post_request:
@@ -747,6 +752,9 @@ resources:
             ReplicationTaskStats: Stats
             Status: TaskStatus
         ModifyReplicationTask:
+          input_fields:
+            ReplicationTaskIdentifier: Name
+            ReplicationTaskSettings: TaskSettings
           output_fields:
             ReplicationTaskCreationDate: CreationDate
             ReplicationTaskStartDate: StartDate

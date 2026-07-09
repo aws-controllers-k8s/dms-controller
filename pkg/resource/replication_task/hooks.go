@@ -172,13 +172,10 @@ func startRequested(ko *svcapitypes.ReplicationTask) bool {
 // updateRequiresStop is a custom function to determine if a ReplicationTask
 // update requires the task to be stopped first.
 func updateRequiresStop(delta *ackcompare.Delta) bool {
+	if delta == nil {
+		return false
+	}
 	return delta.DifferentExcept("Spec.StartReplicationTask", "Spec.Tags")
-}
-
-// updateInProgress is a custom function to determine if a ReplicationTask
-// update is in progress by checking UpdateInProgress status attribute.
-func updateInProgress(ko *svcapitypes.ReplicationTask) bool {
-	return ko.Status.UpdateInProgress != nil && *ko.Status.UpdateInProgress
 }
 
 // alreadyStarted is a custom function to determine if a ReplicationTask
@@ -211,8 +208,8 @@ func alreadyStopped(ko *svcapitypes.ReplicationTask) bool {
 // shouldStartReplicationTask is a custom function to determine if a
 // ReplicationTask should be started.
 func shouldStartReplicationTask(ko *svcapitypes.ReplicationTask) bool {
-	return hasSteadyState(ko) && !updateInProgress(ko) && !deleteRequested(ko) &&
-		startRequested(ko) && endpointConnectionsTested(ko) && !alreadyStarted(ko)
+	return hasSteadyState(ko) && !deleteRequested(ko) && startRequested(ko) && endpointConnectionsTested(ko) &&
+		!alreadyStarted(ko)
 }
 
 // shouldStopReplicationTask is a custom function to determine if a

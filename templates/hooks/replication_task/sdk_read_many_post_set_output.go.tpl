@@ -67,17 +67,3 @@ for _, elem := range respDescribeConnections.Connections {
         ko.Status.TargetEndpointConnectionLastFailureMessage = elem.LastFailureMessage
     }
 }
-
-// sdk_read_many_post_set_output hook
-//
-// Start the replication task if requested.
-if shouldStartReplicationTask(ko) {
-    startReplicationTaskInput := newStartReplicationTaskRequestPayload(ko)
-    _, err := rm.sdkapi.StartReplicationTask(ctx, startReplicationTaskInput)
-    rm.metrics.RecordAPICall("UPDATE", "StartReplicationTask", err)
-    if err != nil {
-        return &resource{ko}, err
-    }
-    ko.Status.TaskStatus = aws.String(replicationTaskStatusStarting)
-    return &resource{ko}, nil
-}

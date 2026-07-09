@@ -297,20 +297,6 @@ func (rm *resourceManager) sdkFind(
 		}
 	}
 
-	// sdk_read_many_post_set_output hook
-	//
-	// Start the replication task if requested.
-	if shouldStartReplicationTask(ko) {
-		startReplicationTaskInput := newStartReplicationTaskRequestPayload(ko)
-		_, err := rm.sdkapi.StartReplicationTask(ctx, startReplicationTaskInput)
-		rm.metrics.RecordAPICall("UPDATE", "StartReplicationTask", err)
-		if err != nil {
-			return &resource{ko}, err
-		}
-		ko.Status.TaskStatus = aws.String(replicationTaskStatusStarting)
-		return &resource{ko}, nil
-	}
-
 	return &resource{ko}, nil
 }
 
@@ -497,6 +483,13 @@ func (rm *resourceManager) sdkCreate(
 		return nil, err
 	}
 
+	// sdk_create_post_set_output hook
+	//
+	// Force evaluation of the update path when StartReplicationTask is true.
+	if startRequested(ko) {
+		return &resource{ko}, ackrequeue.NeededAfter(fmt.Errorf("resource created, requeue for start"), time.Second)
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -590,7 +583,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	// sdk_update_pre_build_request hook
 	//
-	// Stop the replication task before updating it.
+	// Stop the replication task when requested or before updating it.
 	if shouldStopReplicationTask(latest.ko, delta) {
 		stopReplicationTaskInput := newStopReplicationTaskRequestPayload(latest.ko)
 		_, err := rm.sdkapi.StopReplicationTask(ctx, stopReplicationTaskInput)
@@ -598,10 +591,26 @@ func (rm *resourceManager) sdkUpdate(
 		if err != nil {
 			return nil, err
 		}
-		// Record that we stopped for an update, not by user request
-		latest.ko.Status.UpdateInProgress = aws.Bool(true)
+		// Setting a transient state re-queues because not synced.
 		latest.ko.Status.TaskStatus = aws.String(replicationTaskStatusStopping)
 		return latest, nil
+	}
+
+	// sdk_update_pre_build_request hook
+	//
+	// Start the replication task when requested or after updating it.
+	if !delta.DifferentExcept("Spec.StartReplicationTask") {
+		if shouldStartReplicationTask(latest.ko) {
+			startReplicationTaskInput := newStartReplicationTaskRequestPayload(latest.ko)
+			_, err := rm.sdkapi.StartReplicationTask(ctx, startReplicationTaskInput)
+			rm.metrics.RecordAPICall("UPDATE", "StartReplicationTask", err)
+			if err != nil {
+				return nil, err
+			}
+			// Setting a transient state re-queues because not synced.
+			latest.ko.Status.TaskStatus = aws.String(replicationTaskStatusStarting)
+			return latest, nil
+		}
 	}
 
 	if latest.ko.Status.TaskStatus != nil {
@@ -671,6 +680,16 @@ func (rm *resourceManager) sdkUpdate(
 		ko.Status.CreationDate = &metav1.Time{*resp.ReplicationTask.ReplicationTaskCreationDate}
 	} else {
 		ko.Status.CreationDate = nil
+	}
+	if resp.ReplicationTask.ReplicationTaskIdentifier != nil {
+		ko.Spec.Name = resp.ReplicationTask.ReplicationTaskIdentifier
+	} else {
+		ko.Spec.Name = nil
+	}
+	if resp.ReplicationTask.ReplicationTaskSettings != nil {
+		ko.Spec.TaskSettings = resp.ReplicationTask.ReplicationTaskSettings
+	} else {
+		ko.Spec.TaskSettings = nil
 	}
 	if resp.ReplicationTask.ReplicationTaskStartDate != nil {
 		ko.Status.StartDate = &metav1.Time{*resp.ReplicationTask.ReplicationTaskStartDate}
@@ -758,9 +777,11 @@ func (rm *resourceManager) sdkUpdate(
 
 	// sdk_update_post_set_output hook
 	//
-	// Reset Status.UpdateInProgress so the next sync can start the
-	// task again if needed.
-	ko.Status.UpdateInProgress = nil
+	// Force another evaluation of the update path when StartReplicationTask
+	// is true.
+	if startRequested(ko) {
+		return &resource{ko}, ackrequeue.NeededAfter(fmt.Errorf("resource updated, requeue for start"), time.Second)
+	}
 
 	return &resource{ko}, nil
 }
@@ -788,6 +809,12 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
 		res.ReplicationTaskArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
+	}
+	if r.ko.Spec.Name != nil {
+		res.ReplicationTaskIdentifier = r.ko.Spec.Name
+	}
+	if r.ko.Spec.TaskSettings != nil {
+		res.ReplicationTaskSettings = r.ko.Spec.TaskSettings
 	}
 	if r.ko.Spec.TableMappings != nil {
 		res.TableMappings = r.ko.Spec.TableMappings

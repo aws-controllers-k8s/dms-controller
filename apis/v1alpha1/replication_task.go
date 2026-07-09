@@ -273,11 +273,6 @@ type ReplicationTaskStatus struct {
 	//    among others.
 	// +kubebuilder:validation:Optional
 	TaskStatus *string `json:"taskStatus,omitempty"`
-	// Indicates whether the replication task is in the process of being updated.
-	// This field is used as a guard in the reconcile loop to prevent the
-	// replication task from being started while an update is pending.
-	// +kubebuilder:validation:Optional
-	UpdateInProgress *bool `json:"updateInProgress,omitempty"`
 }
 
 // ReplicationTask is the Schema for the ReplicationTasks API

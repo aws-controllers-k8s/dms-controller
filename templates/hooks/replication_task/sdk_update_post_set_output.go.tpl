@@ -10,6 +10,8 @@ if err != nil {
 
 // sdk_update_post_set_output hook
 //
-// Reset Status.UpdateInProgress so the next sync can start the
-// task again if needed.
-ko.Status.UpdateInProgress = nil
+// Force another evaluation of the update path when StartReplicationTask
+// is true.
+if startRequested(ko) {
+    return &resource{ko}, ackrequeue.NeededAfter(fmt.Errorf("resource updated, requeue for start"), time.Second)
+}

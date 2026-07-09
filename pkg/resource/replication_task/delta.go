@@ -42,6 +42,17 @@ func newResourceDelta(
 		return delta
 	}
 
+	// delta_pre_compare hook
+	//
+	// Trigger an update if ReplicationTask should be started based on
+	// the latest state of the resource.
+	//
+	// a = desired
+	// b = latest
+	if shouldStartReplicationTask(b.ko) {
+		delta.Add("Spec.StartReplicationTask", true, false)
+	}
+
 	if ackcompare.HasNilDifference(a.ko.Spec.CdcStartPosition, b.ko.Spec.CdcStartPosition) {
 		delta.Add("Spec.CdcStartPosition", a.ko.Spec.CdcStartPosition, b.ko.Spec.CdcStartPosition)
 	} else if a.ko.Spec.CdcStartPosition != nil && b.ko.Spec.CdcStartPosition != nil {
@@ -136,16 +147,27 @@ func newResourceDelta(
 	if ackcompare.HasNilDifference(a.ko.Spec.TaskData, b.ko.Spec.TaskData) {
 		delta.Add("Spec.TaskData", a.ko.Spec.TaskData, b.ko.Spec.TaskData)
 	} else if a.ko.Spec.TaskData != nil && b.ko.Spec.TaskData != nil {
-		if *a.ko.Spec.TaskData != *b.ko.Spec.TaskData {
+		if equal, err := ackcompare.DocumentEqual(*a.ko.Spec.TaskData, *b.ko.Spec.TaskData); err != nil || !equal {
 			delta.Add("Spec.TaskData", a.ko.Spec.TaskData, b.ko.Spec.TaskData)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.TaskSettings, b.ko.Spec.TaskSettings) {
 		delta.Add("Spec.TaskSettings", a.ko.Spec.TaskSettings, b.ko.Spec.TaskSettings)
 	} else if a.ko.Spec.TaskSettings != nil && b.ko.Spec.TaskSettings != nil {
-		if *a.ko.Spec.TaskSettings != *b.ko.Spec.TaskSettings {
+		if equal, err := ackcompare.DocumentEqual(*a.ko.Spec.TaskSettings, *b.ko.Spec.TaskSettings); err != nil || !equal {
 			delta.Add("Spec.TaskSettings", a.ko.Spec.TaskSettings, b.ko.Spec.TaskSettings)
 		}
+	}
+
+	// delta_post_compare hook
+	//
+	// Trigger an update if ReplicationTask should be stopped based on
+	// the latest state of the resource.
+	//
+	// a = desired
+	// b = latest
+	if shouldStopReplicationTask(b.ko, delta) {
+		delta.Add("Spec.StartReplicationTask", false, true)
 	}
 
 	return delta
