@@ -768,14 +768,6 @@ resources:
             - ready
             - running
             - stopped
-    updateable:
-      when:
-        - path: Status.TaskStatus
-          in:
-            - failed
-            - ready
-            - running
-            - stopped
 sdk_names:
   model_name: database-migration-service
   package_name: databasemigrationservice

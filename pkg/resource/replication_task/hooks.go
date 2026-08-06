@@ -187,10 +187,11 @@ func alreadyStarted(ko *svcapitypes.ReplicationTask) bool {
 	// if status is running or starting
 	c1 := *ko.Status.TaskStatus == replicationTaskStatusRunning ||
 		*ko.Status.TaskStatus == replicationTaskStatusStarting
-	// if status is stopping or stopped and migration type is full-load
+	// if status is stopping or stopped and full-load only migration finished
 	c2 := (*ko.Status.TaskStatus == replicationTaskStatusStopping ||
 		*ko.Status.TaskStatus == replicationTaskStatusStopped) &&
-		*ko.Spec.MigrationType == string(svcsdktypes.MigrationTypeValueFullLoad)
+		*ko.Spec.MigrationType == string(svcsdktypes.MigrationTypeValueFullLoad &&
+		*ko.Status.Stats != nil && *ko.Status.Stats.FullLoadFinishDate != nil)
 	return c1 || c2
 }
 
@@ -208,15 +209,37 @@ func alreadyStopped(ko *svcapitypes.ReplicationTask) bool {
 // shouldStartReplicationTask is a custom function to determine if a
 // ReplicationTask should be started.
 func shouldStartReplicationTask(ko *svcapitypes.ReplicationTask) bool {
-	return hasSteadyState(ko) && !deleteRequested(ko) && startRequested(ko) && endpointConnectionsTested(ko) &&
-		!alreadyStarted(ko)
+	// do not auto-manage state if StartReplicationTask is not set
+	if ko.Spec.StartReplicationTask == nil {
+		return false
+	}
+	if !hasSteadyState(ko) || alreadyStarted(ko) {
+		return false
+	}
+	if deleteRequested(ko) || !startRequested(ko) {
+		return false
+	}
+	return endpointConnectionsTested(ko)
 }
 
 // shouldStopReplicationTask is a custom function to determine if a
 // ReplicationTask should be stopped.
 func shouldStopReplicationTask(ko *svcapitypes.ReplicationTask, delta *ackcompare.Delta) bool {
-	return hasSteadyState(ko) && (deleteRequested(ko) || !startRequested(ko) || updateRequiresStop(delta)) &&
-		!alreadyStopped(ko)
+	// do not auto-manage state if StartReplicationTask is not set
+	// except when delete is requested
+	if ko.Spec.StartReplicationTask == nil && !deleteRequested(ko) {
+		return false
+	}
+	if !hasSteadyState(ko) || alreadyStopped(ko) {
+		return false
+	}
+	if deleteRequested(ko) {
+		return true
+	}
+	if !*ko.Spec.StartReplicationTask {
+		return true
+	}
+	return updateRequiresStop(delta)
 }
 
 // newStartReplicationTaskRequestPayload is a custom function to

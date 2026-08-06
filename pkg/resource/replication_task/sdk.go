@@ -613,14 +613,15 @@ func (rm *resourceManager) sdkUpdate(
 		}
 	}
 
-	if latest.ko.Status.TaskStatus != nil {
-		if !ackutil.InStrings(*latest.ko.Status.TaskStatus, []string{"failed", "ready", "running", "stopped"}) {
-			return nil, ackrequeue.NeededAfter(
-				fmt.Errorf("resource is in %s state, cannot be updated",
-					*latest.ko.Status.TaskStatus),
-				time.Duration(30)*time.Second,
-			)
-		}
+	// sdk_update_pre_build_request hook
+	//
+	// If the replication task is not stopped, do not try to update it.
+	if updateRequiresStop(delta) && !alreadyStopped(latest.ko) {
+		return nil, ackrequeue.NeededAfter(
+			fmt.Errorf("resource is in %s state, cannot be updated",
+				*latest.ko.Status.TaskStatus),
+			time.Duration(30)*time.Second,
+		)
 	}
 
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

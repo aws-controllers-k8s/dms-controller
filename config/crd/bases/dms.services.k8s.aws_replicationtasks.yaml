@@ -169,8 +169,13 @@ spec:
                     type: object
                 type: object
               startReplicationTask:
-                description: Indicates whether the replication task should be started
-                  after it is created.
+                description: |-
+                  Controls how ACK manages the replication task state. When set to true, ACK
+                  tries to keep the task running, except during required update stops. When set
+                  to false, ACK tries to keep the task stopped. If not set, ACK does not start or
+                  stop the task automatically; spec changes still update the sync state but will
+                  be applied only when the task is stopped. Full-load only migrations that have
+                  finished are not restarted automatically.
                 type: boolean
               tableMappings:
                 description: |-

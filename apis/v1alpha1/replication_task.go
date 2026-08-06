@@ -94,7 +94,12 @@ type ReplicationTaskSpec struct {
 	SourceEndpointARN *string `json:"sourceEndpointARN,omitempty"`
 	// Reference to an ACK managed source endpoint resource for this replication task.
 	SourceEndpointRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"sourceEndpointRef,omitempty"`
-	// Indicates whether the replication task should be started after it is created.
+	// Controls how ACK manages the replication task state. When set to true, ACK
+	// tries to keep the task running, except during required update stops. When set
+	// to false, ACK tries to keep the task stopped. If not set, ACK does not start or
+	// stop the task automatically; spec changes still update the sync state but will
+	// be applied only when the task is stopped. Full-load only migrations that have
+	// finished are not restarted automatically.
 	StartReplicationTask *bool `json:"startReplicationTask,omitempty"`
 	// The table mappings for the task, in JSON format. For more information, see
 	// Using Table Mapping to Specify Task Settings (https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.html)
