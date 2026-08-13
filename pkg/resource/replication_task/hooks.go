@@ -190,8 +190,8 @@ func alreadyStarted(ko *svcapitypes.ReplicationTask) bool {
 	// if status is stopping or stopped and full-load only migration finished
 	c2 := (*ko.Status.TaskStatus == replicationTaskStatusStopping ||
 		*ko.Status.TaskStatus == replicationTaskStatusStopped) &&
-		*ko.Spec.MigrationType == string(svcsdktypes.MigrationTypeValueFullLoad &&
-		*ko.Status.Stats != nil && *ko.Status.Stats.FullLoadFinishDate != nil)
+		*ko.Spec.MigrationType == string(svcsdktypes.MigrationTypeValueFullLoad) &&
+		ko.Status.Stats != nil && ko.Status.Stats.FullLoadFinishDate != nil
 	return c1 || c2
 }
 
