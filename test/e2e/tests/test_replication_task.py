@@ -48,9 +48,12 @@ SUBNET_GROUP_RESOURCE_PLURAL = "replicationsubnetgroups"
 SUBNET_GROUP_DESC = "Test subnet group for ReplicationTask"
 
 # Timeouts for waiting on resource states
-MAX_WAIT_INSTANCE_SYNCED_MINUTES = 20
 MAX_WAIT_SUBNET_GROUP_SYNCED_MINUTES = 5
 MAX_WAIT_ENDPOINT_SYNCED_MINUTES = 5
+# DMS replication instances typically take 5-10 minutes to become available.
+# However, the provisioning can experience increased latency  due to resource
+# contention when multiple tests create or update instances concurrently.
+MAX_WAIT_INSTANCE_SYNCED_MINUTES = 30
 MAX_WAIT_TASK_SYNCED_MINUTES = 10
 
 # Time to wait between modifications for controller reconciliation

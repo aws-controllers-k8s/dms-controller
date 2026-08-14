@@ -43,8 +43,9 @@ from e2e import replication_subnet_group as sg_aws_api
 RESOURCE_PLURAL = "replicationinstances"
 
 # DMS replication instances typically take 5-10 minutes to become available.
-# We allow 20 minutes total to account for slower regions and retries.
-MAX_WAIT_FOR_SYNCED_MINUTES = 20
+# However, the provisioning can experience increased latency  due to resource
+# contention when multiple tests create or update instances concurrently.
+MAX_WAIT_FOR_SYNCED_MINUTES = 30
 
 # Time to pause between patching a resource and re-checking its AWS state.
 MODIFY_WAIT_AFTER_SECONDS = 10
