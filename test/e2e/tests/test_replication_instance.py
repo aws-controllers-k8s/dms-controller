@@ -46,6 +46,10 @@ RESOURCE_PLURAL = "replicationinstances"
 # We allow 20 minutes total to account for slower regions and retries.
 MAX_WAIT_FOR_SYNCED_MINUTES = 20
 
+# A MultiAZ toggle provisions a standby in a second AZ and takes far longer
+# than a normal modify (~20+ minutes observed).
+MAX_WAIT_FOR_MULTIAZ_SYNCED_MINUTES = 40
+
 # Time to pause between patching a resource and re-checking its AWS state.
 MODIFY_WAIT_AFTER_SECONDS = 10
 
@@ -316,7 +320,7 @@ class TestReplicationInstance:
 
         assert k8s.wait_on_condition(
             ref, "ACK.ResourceSynced", "True",
-            wait_periods=MAX_WAIT_FOR_SYNCED_MINUTES * 4, period_length=15,
+            wait_periods=MAX_WAIT_FOR_MULTIAZ_SYNCED_MINUTES * 4, period_length=15,
         )
 
         latest = aws_api.get(instance_name)

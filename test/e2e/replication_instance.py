@@ -20,8 +20,12 @@ import typing
 import boto3
 import pytest
 
-DEFAULT_WAIT_UNTIL_DELETED_TIMEOUT_SECONDS = 60 * 20
+DEFAULT_WAIT_UNTIL_DELETED_TIMEOUT_SECONDS = 60 * 40
 DEFAULT_WAIT_UNTIL_DELETED_INTERVAL_SECONDS = 15
+
+# Statuses to keep polling through during teardown: DMS won't accept the delete
+# until an in-flight modification finishes, so these are expected, not failures.
+_TOLERATED_TEARDOWN_STATUSES = frozenset({"available", "modifying"})
 
 
 def wait_until_deleted(
@@ -39,8 +43,9 @@ def wait_until_deleted(
         wait_until_deleted(instance_id)
 
     Raises:
-        pytest.fail upon timeout or if the instance enters any status other
-        than "deleting" while being removed.
+        pytest.fail upon timeout or if the instance enters an unexpected status
+        (i.e. not "deleting" nor a status tolerated during teardown) while being
+        removed.
     """
     now = datetime.datetime.now()
     timeout = now + datetime.timedelta(seconds=timeout_seconds)
@@ -57,11 +62,14 @@ def wait_until_deleted(
         if latest is None:
             break
 
-        if latest['ReplicationInstanceStatus'] != "deleting":
-            pytest.fail(
-                "Status is not 'deleting' for ReplicationInstance that was "
-                "deleted. Status is " + latest['ReplicationInstanceStatus']
-            )
+        status = latest['ReplicationInstanceStatus']
+        if status == "deleting" or status in _TOLERATED_TEARDOWN_STATUSES:
+            continue
+
+        pytest.fail(
+            "Unexpected status for ReplicationInstance that was deleted. "
+            "Status is " + status
+        )
 
 
 def get(replication_instance_id: str) -> dict | None:
