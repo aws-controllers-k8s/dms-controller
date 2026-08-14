@@ -32,6 +32,8 @@ var (
 // of replication instances allowed.
 type AccountQuota struct {
 	AccountQuotaName *string `json:"accountQuotaName,omitempty"`
+	Max              *int64  `json:"max,omitempty"`
+	Used             *int64  `json:"used,omitempty"`
 }
 
 // The name of an Availability Zone for use during database migration. AvailabilityZone
@@ -123,6 +125,7 @@ type DataMigration struct {
 	DataMigrationARN     *string `json:"dataMigrationARN,omitempty"`
 	DataMigrationName    *string `json:"dataMigrationName,omitempty"`
 	DataMigrationStatus  *string `json:"dataMigrationStatus,omitempty"`
+	DataMigrationType    *string `json:"dataMigrationType,omitempty"`
 	LastFailureMessage   *string `json:"lastFailureMessage,omitempty"`
 	MigrationProjectARN  *string `json:"migrationProjectARN,omitempty"`
 	ServiceAccessRoleARN *string `json:"serviceAccessRoleARN,omitempty"`
@@ -142,6 +145,7 @@ type DataMigrationSettings struct {
 // latency, and migration progress.
 type DataMigrationStatistics struct {
 	CDCLatency         *int64 `json:"cDCLatency,omitempty"`
+	ElapsedTimeMillis  *int64 `json:"elapsedTimeMillis,omitempty"`
 	FullLoadPercentage *int64 `json:"fullLoadPercentage,omitempty"`
 	TablesErrored      *int64 `json:"tablesErrored,omitempty"`
 	TablesLoaded       *int64 `json:"tablesLoaded,omitempty"`
@@ -919,6 +923,7 @@ type ProcessedObject struct {
 // Provides information about the progress of the schema conversion operation.
 type Progress struct {
 	ProgressStep *string `json:"progressStep,omitempty"`
+	TotalObjects *int64  `json:"totalObjects,omitempty"`
 }
 
 // Information about provisioning resources for an DMS serverless replication.
@@ -1069,6 +1074,7 @@ type Replication struct {
 	ReplicationCreateTime       *metav1.Time `json:"replicationCreateTime,omitempty"`
 	ReplicationDeprovisionTime  *metav1.Time `json:"replicationDeprovisionTime,omitempty"`
 	ReplicationLastStopTime     *metav1.Time `json:"replicationLastStopTime,omitempty"`
+	ReplicationType             *string      `json:"replicationType,omitempty"`
 	ReplicationUpdateTime       *metav1.Time `json:"replicationUpdateTime,omitempty"`
 	SourceEndpointARN           *string      `json:"sourceEndpointARN,omitempty"`
 	StartReplicationType        *string      `json:"startReplicationType,omitempty"`
@@ -1085,6 +1091,7 @@ type ReplicationConfig struct {
 	ReplicationConfigIdentifier *string      `json:"replicationConfigIdentifier,omitempty"`
 	ReplicationConfigUpdateTime *metav1.Time `json:"replicationConfigUpdateTime,omitempty"`
 	ReplicationSettings         *string      `json:"replicationSettings,omitempty"`
+	ReplicationType             *string      `json:"replicationType,omitempty"`
 	SourceEndpointARN           *string      `json:"sourceEndpointARN,omitempty"`
 	SupplementalSettings        *string      `json:"supplementalSettings,omitempty"`
 	TableMappings               *string      `json:"tableMappings,omitempty"`
@@ -1093,8 +1100,9 @@ type ReplicationConfig struct {
 
 // Contains metadata for a replication instance task log.
 type ReplicationInstanceTaskLog struct {
-	ReplicationTaskARN  *string `json:"replicationTaskARN,omitempty"`
-	ReplicationTaskName *string `json:"replicationTaskName,omitempty"`
+	ReplicationInstanceTaskLogSize *int64  `json:"replicationInstanceTaskLogSize,omitempty"`
+	ReplicationTaskARN             *string `json:"replicationTaskARN,omitempty"`
+	ReplicationTaskName            *string `json:"replicationTaskName,omitempty"`
 }
 
 // Provides information that defines a replication instance.
@@ -1143,6 +1151,7 @@ type ReplicationPendingModifiedValues struct {
 
 // This object provides a collection of statistics about a serverless replication.
 type ReplicationStats struct {
+	ElapsedTimeMillis       *int64       `json:"elapsedTimeMillis,omitempty"`
 	FreshStartDate          *metav1.Time `json:"freshStartDate,omitempty"`
 	FullLoadFinishDate      *metav1.Time `json:"fullLoadFinishDate,omitempty"`
 	FullLoadProgressPercent *int64       `json:"fullLoadProgressPercent,omitempty"`
@@ -1165,28 +1174,6 @@ type ReplicationSubnetGroup_SDK struct {
 	Subnets                           []*Subnet `json:"subnets,omitempty"`
 	SupportedNetworkTypes             []*string `json:"supportedNetworkTypes,omitempty"`
 	VPCID                             *string   `json:"vpcID,omitempty"`
-}
-
-// Provides information that describes a replication task created by the CreateReplicationTask
-// operation.
-type ReplicationTask struct {
-	CdcStartPosition             *string      `json:"cdcStartPosition,omitempty"`
-	CdcStopPosition              *string      `json:"cdcStopPosition,omitempty"`
-	LastFailureMessage           *string      `json:"lastFailureMessage,omitempty"`
-	RecoveryCheckpoint           *string      `json:"recoveryCheckpoint,omitempty"`
-	ReplicationInstanceARN       *string      `json:"replicationInstanceARN,omitempty"`
-	ReplicationTaskARN           *string      `json:"replicationTaskARN,omitempty"`
-	ReplicationTaskCreationDate  *metav1.Time `json:"replicationTaskCreationDate,omitempty"`
-	ReplicationTaskIdentifier    *string      `json:"replicationTaskIdentifier,omitempty"`
-	ReplicationTaskSettings      *string      `json:"replicationTaskSettings,omitempty"`
-	ReplicationTaskStartDate     *metav1.Time `json:"replicationTaskStartDate,omitempty"`
-	SourceEndpointARN            *string      `json:"sourceEndpointARN,omitempty"`
-	Status                       *string      `json:"status,omitempty"`
-	StopReason                   *string      `json:"stopReason,omitempty"`
-	TableMappings                *string      `json:"tableMappings,omitempty"`
-	TargetEndpointARN            *string      `json:"targetEndpointARN,omitempty"`
-	TargetReplicationInstanceARN *string      `json:"targetReplicationInstanceARN,omitempty"`
-	TaskData                     *string      `json:"taskData,omitempty"`
 }
 
 // The task assessment report in JSON format.
@@ -1249,6 +1236,7 @@ type ReplicationTaskIndividualAssessment struct {
 // In response to a request by the DescribeReplicationTasks operation, this
 // object provides a collection of statistics about a replication task.
 type ReplicationTaskStats struct {
+	ElapsedTimeMillis       *int64       `json:"elapsedTimeMillis,omitempty"`
 	FreshStartDate          *metav1.Time `json:"freshStartDate,omitempty"`
 	FullLoadFinishDate      *metav1.Time `json:"fullLoadFinishDate,omitempty"`
 	FullLoadProgressPercent *int64       `json:"fullLoadProgressPercent,omitempty"`
@@ -1259,6 +1247,32 @@ type ReplicationTaskStats struct {
 	TablesLoaded            *int64       `json:"tablesLoaded,omitempty"`
 	TablesLoading           *int64       `json:"tablesLoading,omitempty"`
 	TablesQueued            *int64       `json:"tablesQueued,omitempty"`
+}
+
+// Provides information that describes a replication task created by the CreateReplicationTask
+// operation.
+type ReplicationTask_SDK struct {
+	CdcStartPosition            *string      `json:"cdcStartPosition,omitempty"`
+	CdcStopPosition             *string      `json:"cdcStopPosition,omitempty"`
+	LastFailureMessage          *string      `json:"lastFailureMessage,omitempty"`
+	MigrationType               *string      `json:"migrationType,omitempty"`
+	RecoveryCheckpoint          *string      `json:"recoveryCheckpoint,omitempty"`
+	ReplicationInstanceARN      *string      `json:"replicationInstanceARN,omitempty"`
+	ReplicationTaskARN          *string      `json:"replicationTaskARN,omitempty"`
+	ReplicationTaskCreationDate *metav1.Time `json:"replicationTaskCreationDate,omitempty"`
+	ReplicationTaskIdentifier   *string      `json:"replicationTaskIdentifier,omitempty"`
+	ReplicationTaskSettings     *string      `json:"replicationTaskSettings,omitempty"`
+	ReplicationTaskStartDate    *metav1.Time `json:"replicationTaskStartDate,omitempty"`
+	// In response to a request by the DescribeReplicationTasks operation, this
+	// object provides a collection of statistics about a replication task.
+	ReplicationTaskStats         *ReplicationTaskStats `json:"replicationTaskStats,omitempty"`
+	SourceEndpointARN            *string               `json:"sourceEndpointARN,omitempty"`
+	Status                       *string               `json:"status,omitempty"`
+	StopReason                   *string               `json:"stopReason,omitempty"`
+	TableMappings                *string               `json:"tableMappings,omitempty"`
+	TargetEndpointARN            *string               `json:"targetEndpointARN,omitempty"`
+	TargetReplicationInstanceARN *string               `json:"targetReplicationInstanceARN,omitempty"`
+	TaskData                     *string               `json:"taskData,omitempty"`
 }
 
 // Identifies an DMS resource and any pending actions for it.
@@ -1424,16 +1438,26 @@ type SybaseSettings struct {
 // Provides a collection of table statistics in response to a request by the
 // DescribeTableStatistics operation.
 type TableStatistics struct {
-	FullLoadEndTime        *metav1.Time `json:"fullLoadEndTime,omitempty"`
-	FullLoadReloaded       *bool        `json:"fullLoadReloaded,omitempty"`
-	FullLoadStartTime      *metav1.Time `json:"fullLoadStartTime,omitempty"`
-	LastUpdateTime         *metav1.Time `json:"lastUpdateTime,omitempty"`
-	ResyncState            *string      `json:"resyncState,omitempty"`
-	SchemaName             *string      `json:"schemaName,omitempty"`
-	TableName              *string      `json:"tableName,omitempty"`
-	TableState             *string      `json:"tableState,omitempty"`
-	ValidationState        *string      `json:"validationState,omitempty"`
-	ValidationStateDetails *string      `json:"validationStateDetails,omitempty"`
+	Ddls                         *int64       `json:"ddls,omitempty"`
+	Deletes                      *int64       `json:"deletes,omitempty"`
+	FullLoadCondtnlChkFailedRows *int64       `json:"fullLoadCondtnlChkFailedRows,omitempty"`
+	FullLoadEndTime              *metav1.Time `json:"fullLoadEndTime,omitempty"`
+	FullLoadErrorRows            *int64       `json:"fullLoadErrorRows,omitempty"`
+	FullLoadReloaded             *bool        `json:"fullLoadReloaded,omitempty"`
+	FullLoadRows                 *int64       `json:"fullLoadRows,omitempty"`
+	FullLoadStartTime            *metav1.Time `json:"fullLoadStartTime,omitempty"`
+	Inserts                      *int64       `json:"inserts,omitempty"`
+	LastUpdateTime               *metav1.Time `json:"lastUpdateTime,omitempty"`
+	ResyncState                  *string      `json:"resyncState,omitempty"`
+	SchemaName                   *string      `json:"schemaName,omitempty"`
+	TableName                    *string      `json:"tableName,omitempty"`
+	TableState                   *string      `json:"tableState,omitempty"`
+	Updates                      *int64       `json:"updates,omitempty"`
+	ValidationFailedRecords      *int64       `json:"validationFailedRecords,omitempty"`
+	ValidationPendingRecords     *int64       `json:"validationPendingRecords,omitempty"`
+	ValidationState              *string      `json:"validationState,omitempty"`
+	ValidationStateDetails       *string      `json:"validationStateDetails,omitempty"`
+	ValidationSuspendedRecords   *int64       `json:"validationSuspendedRecords,omitempty"`
 }
 
 // Provides the name of the schema and table to be reloaded.

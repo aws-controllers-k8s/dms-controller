@@ -21,6 +21,7 @@ rules:
   - eventsubscriptions
   - replicationinstances
   - replicationsubnetgroups
+  - replicationtasks
   verbs:
   - get
   - list

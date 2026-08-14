@@ -43,8 +43,9 @@ from e2e import replication_subnet_group as sg_aws_api
 RESOURCE_PLURAL = "replicationinstances"
 
 # DMS replication instances typically take 5-10 minutes to become available.
-# We allow 20 minutes total to account for slower regions and retries.
-MAX_WAIT_FOR_SYNCED_MINUTES = 20
+# However, the provisioning can experience increased latency  due to resource
+# contention when multiple tests create or update instances concurrently.
+MAX_WAIT_FOR_SYNCED_MINUTES = 30
 
 # A MultiAZ toggle provisions a standby in a second AZ and takes far longer
 # than a normal modify (~20+ minutes observed).
