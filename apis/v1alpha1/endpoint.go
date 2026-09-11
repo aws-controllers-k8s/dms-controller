@@ -45,10 +45,10 @@ type EndpointSpec struct {
 	//
 	// Possible settings include the following:
 	//
-	//   - ServiceAccessRoleArn - The Amazon Resource Name (ARN) used by the service
-	//     access IAM role. The role must allow the iam:PassRole action.
+	//    * ServiceAccessRoleArn - The Amazon Resource Name (ARN) used by the service
+	//    access IAM role. The role must allow the iam:PassRole action.
 	//
-	//   - BucketName - The name of the S3 bucket to use.
+	//    * BucketName - The name of the S3 bucket to use.
 	//
 	// Shorthand syntax for these settings is as follows: ServiceAccessRoleArn=string,BucketName=string
 	//
