@@ -64,12 +64,11 @@ type ReplicationTaskSpec struct {
 	//
 	// Constraints:
 	//
-	//   - Must contain 1-255 alphanumeric characters or hyphens.
+	//    * Must contain 1-255 alphanumeric characters or hyphens.
 	//
-	//   - First character must be a letter.
+	//    * First character must be a letter.
 	//
-	//   - Cannot end with a hyphen or contain two consecutive hyphens.
-	//
+	//    * Cannot end with a hyphen or contain two consecutive hyphens.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`

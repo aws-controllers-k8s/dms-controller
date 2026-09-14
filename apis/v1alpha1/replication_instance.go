@@ -85,11 +85,11 @@ type ReplicationInstanceSpec struct {
 	//
 	// Constraints:
 	//
-	//   - Must contain 1-63 alphanumeric characters or hyphens.
+	//    * Must contain 1-63 alphanumeric characters or hyphens.
 	//
-	//   - First character must be a letter.
+	//    * First character must be a letter.
 	//
-	//   - Can't end with a hyphen or contain two consecutive hyphens.
+	//    * Can't end with a hyphen or contain two consecutive hyphens.
 	//
 	// Example: myrepinstance
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
