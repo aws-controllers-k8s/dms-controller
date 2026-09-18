@@ -421,6 +421,402 @@ func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) ack
 	return &resource{ko}
 }
 
+// EnsureReferences restores, onto a copy of `latest`, the cross-resource reference
+// (*Ref) fields it is missing, taking them from `desired`. Only reference fields are
+// written, so every concrete value on `latest` stands.
+//
+// A *Ref is a sibling of the concrete field it resolves into, so rebuilding the
+// containing struct from an AWS API response drops it. That disables
+// ClearResolvedReferences, which suppresses a resolved value only while the sibling
+// *Ref is visible, so the spec patch would otherwise delete the declared *Ref and
+// store the resolved value in its place.
+//
+// Only references reached through structs are restored, and each containing struct
+// is created on `latest` when `desired` has it and `latest` does not -- generated
+// set-output code nils a struct when the response omits it. A top-level *Ref needs
+// no help, since generated set-output code overwrites only the concrete field. One
+// reached through a list is not restored: it has no fixed address, and replacing the
+// whole list would discard whatever the service populated inside it.
+//
+// Nothing is written unless `desired` actually holds the reference, so a source that
+// declares none leaves `latest` untouched.
+func (rm *resourceManager) EnsureReferences(
+	desired acktypes.AWSResource,
+	latest acktypes.AWSResource,
+) acktypes.AWSResource {
+	// Deep copy the source as well, so a reference handed over below does not
+	// alias the caller's declared object.
+	desiredKO := rm.concreteResource(desired).ko.DeepCopy()
+	latestKO := rm.concreteResource(latest).ko.DeepCopy()
+
+	if desiredKO.Spec.DmsTransferSettings != nil {
+		if desiredKO.Spec.DmsTransferSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.DmsTransferSettings == nil {
+				latestKO.Spec.DmsTransferSettings = &svcapitypes.DmsTransferSettings{}
+			}
+			if latestKO.Spec.DmsTransferSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.DmsTransferSettings.ServiceAccessRoleRef = desiredKO.Spec.DmsTransferSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.DocDBSettings != nil {
+		if desiredKO.Spec.DocDBSettings.KMSKeyRef != nil {
+			if latestKO.Spec.DocDBSettings == nil {
+				latestKO.Spec.DocDBSettings = &svcapitypes.DocDBSettings{}
+			}
+			if latestKO.Spec.DocDBSettings.KMSKeyRef == nil {
+				latestKO.Spec.DocDBSettings.KMSKeyRef = desiredKO.Spec.DocDBSettings.KMSKeyRef
+			}
+		}
+		if desiredKO.Spec.DocDBSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.DocDBSettings == nil {
+				latestKO.Spec.DocDBSettings = &svcapitypes.DocDBSettings{}
+			}
+			if latestKO.Spec.DocDBSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.DocDBSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.DocDBSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.DocDBSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.DocDBSettings == nil {
+				latestKO.Spec.DocDBSettings = &svcapitypes.DocDBSettings{}
+			}
+			if latestKO.Spec.DocDBSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.DocDBSettings.SecretsManagerSecretRef = desiredKO.Spec.DocDBSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.DynamoDBSettings != nil {
+		if desiredKO.Spec.DynamoDBSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.DynamoDBSettings == nil {
+				latestKO.Spec.DynamoDBSettings = &svcapitypes.DynamoDBSettings{}
+			}
+			if latestKO.Spec.DynamoDBSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.DynamoDBSettings.ServiceAccessRoleRef = desiredKO.Spec.DynamoDBSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.ElasticsearchSettings != nil {
+		if desiredKO.Spec.ElasticsearchSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.ElasticsearchSettings == nil {
+				latestKO.Spec.ElasticsearchSettings = &svcapitypes.ElasticsearchSettings{}
+			}
+			if latestKO.Spec.ElasticsearchSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.ElasticsearchSettings.ServiceAccessRoleRef = desiredKO.Spec.ElasticsearchSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.GcpMySQLSettings != nil {
+		if desiredKO.Spec.GcpMySQLSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.GcpMySQLSettings == nil {
+				latestKO.Spec.GcpMySQLSettings = &svcapitypes.GcpMySQLSettings{}
+			}
+			if latestKO.Spec.GcpMySQLSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.GcpMySQLSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.GcpMySQLSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.GcpMySQLSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.GcpMySQLSettings == nil {
+				latestKO.Spec.GcpMySQLSettings = &svcapitypes.GcpMySQLSettings{}
+			}
+			if latestKO.Spec.GcpMySQLSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.GcpMySQLSettings.SecretsManagerSecretRef = desiredKO.Spec.GcpMySQLSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.IBMDB2Settings != nil {
+		if desiredKO.Spec.IBMDB2Settings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.IBMDB2Settings == nil {
+				latestKO.Spec.IBMDB2Settings = &svcapitypes.IBMDB2Settings{}
+			}
+			if latestKO.Spec.IBMDB2Settings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.IBMDB2Settings.SecretsManagerAccessRoleRef = desiredKO.Spec.IBMDB2Settings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.IBMDB2Settings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.IBMDB2Settings == nil {
+				latestKO.Spec.IBMDB2Settings = &svcapitypes.IBMDB2Settings{}
+			}
+			if latestKO.Spec.IBMDB2Settings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.IBMDB2Settings.SecretsManagerSecretRef = desiredKO.Spec.IBMDB2Settings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.KafkaSettings != nil {
+		if desiredKO.Spec.KafkaSettings.SSLCaCertificateRef != nil {
+			if latestKO.Spec.KafkaSettings == nil {
+				latestKO.Spec.KafkaSettings = &svcapitypes.KafkaSettings{}
+			}
+			if latestKO.Spec.KafkaSettings.SSLCaCertificateRef == nil {
+				latestKO.Spec.KafkaSettings.SSLCaCertificateRef = desiredKO.Spec.KafkaSettings.SSLCaCertificateRef
+			}
+		}
+		if desiredKO.Spec.KafkaSettings.SSLClientCertificateRef != nil {
+			if latestKO.Spec.KafkaSettings == nil {
+				latestKO.Spec.KafkaSettings = &svcapitypes.KafkaSettings{}
+			}
+			if latestKO.Spec.KafkaSettings.SSLClientCertificateRef == nil {
+				latestKO.Spec.KafkaSettings.SSLClientCertificateRef = desiredKO.Spec.KafkaSettings.SSLClientCertificateRef
+			}
+		}
+		if desiredKO.Spec.KafkaSettings.SSLClientKeyRef != nil {
+			if latestKO.Spec.KafkaSettings == nil {
+				latestKO.Spec.KafkaSettings = &svcapitypes.KafkaSettings{}
+			}
+			if latestKO.Spec.KafkaSettings.SSLClientKeyRef == nil {
+				latestKO.Spec.KafkaSettings.SSLClientKeyRef = desiredKO.Spec.KafkaSettings.SSLClientKeyRef
+			}
+		}
+	}
+	if desiredKO.Spec.KinesisSettings != nil {
+		if desiredKO.Spec.KinesisSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.KinesisSettings == nil {
+				latestKO.Spec.KinesisSettings = &svcapitypes.KinesisSettings{}
+			}
+			if latestKO.Spec.KinesisSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.KinesisSettings.ServiceAccessRoleRef = desiredKO.Spec.KinesisSettings.ServiceAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.KinesisSettings.StreamRef != nil {
+			if latestKO.Spec.KinesisSettings == nil {
+				latestKO.Spec.KinesisSettings = &svcapitypes.KinesisSettings{}
+			}
+			if latestKO.Spec.KinesisSettings.StreamRef == nil {
+				latestKO.Spec.KinesisSettings.StreamRef = desiredKO.Spec.KinesisSettings.StreamRef
+			}
+		}
+	}
+	if desiredKO.Spec.MicrosoftSQLServerSettings != nil {
+		if desiredKO.Spec.MicrosoftSQLServerSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.MicrosoftSQLServerSettings == nil {
+				latestKO.Spec.MicrosoftSQLServerSettings = &svcapitypes.MicrosoftSQLServerSettings{}
+			}
+			if latestKO.Spec.MicrosoftSQLServerSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.MicrosoftSQLServerSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.MicrosoftSQLServerSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.MicrosoftSQLServerSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.MicrosoftSQLServerSettings == nil {
+				latestKO.Spec.MicrosoftSQLServerSettings = &svcapitypes.MicrosoftSQLServerSettings{}
+			}
+			if latestKO.Spec.MicrosoftSQLServerSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.MicrosoftSQLServerSettings.SecretsManagerSecretRef = desiredKO.Spec.MicrosoftSQLServerSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.MongoDBSettings != nil {
+		if desiredKO.Spec.MongoDBSettings.KMSKeyRef != nil {
+			if latestKO.Spec.MongoDBSettings == nil {
+				latestKO.Spec.MongoDBSettings = &svcapitypes.MongoDBSettings{}
+			}
+			if latestKO.Spec.MongoDBSettings.KMSKeyRef == nil {
+				latestKO.Spec.MongoDBSettings.KMSKeyRef = desiredKO.Spec.MongoDBSettings.KMSKeyRef
+			}
+		}
+		if desiredKO.Spec.MongoDBSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.MongoDBSettings == nil {
+				latestKO.Spec.MongoDBSettings = &svcapitypes.MongoDBSettings{}
+			}
+			if latestKO.Spec.MongoDBSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.MongoDBSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.MongoDBSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.MongoDBSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.MongoDBSettings == nil {
+				latestKO.Spec.MongoDBSettings = &svcapitypes.MongoDBSettings{}
+			}
+			if latestKO.Spec.MongoDBSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.MongoDBSettings.SecretsManagerSecretRef = desiredKO.Spec.MongoDBSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.MySQLSettings != nil {
+		if desiredKO.Spec.MySQLSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.MySQLSettings == nil {
+				latestKO.Spec.MySQLSettings = &svcapitypes.MySQLSettings{}
+			}
+			if latestKO.Spec.MySQLSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.MySQLSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.MySQLSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.MySQLSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.MySQLSettings == nil {
+				latestKO.Spec.MySQLSettings = &svcapitypes.MySQLSettings{}
+			}
+			if latestKO.Spec.MySQLSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.MySQLSettings.SecretsManagerSecretRef = desiredKO.Spec.MySQLSettings.SecretsManagerSecretRef
+			}
+		}
+		if desiredKO.Spec.MySQLSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.MySQLSettings == nil {
+				latestKO.Spec.MySQLSettings = &svcapitypes.MySQLSettings{}
+			}
+			if latestKO.Spec.MySQLSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.MySQLSettings.ServiceAccessRoleRef = desiredKO.Spec.MySQLSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.NeptuneSettings != nil {
+		if desiredKO.Spec.NeptuneSettings.S3BucketRef != nil {
+			if latestKO.Spec.NeptuneSettings == nil {
+				latestKO.Spec.NeptuneSettings = &svcapitypes.NeptuneSettings{}
+			}
+			if latestKO.Spec.NeptuneSettings.S3BucketRef == nil {
+				latestKO.Spec.NeptuneSettings.S3BucketRef = desiredKO.Spec.NeptuneSettings.S3BucketRef
+			}
+		}
+		if desiredKO.Spec.NeptuneSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.NeptuneSettings == nil {
+				latestKO.Spec.NeptuneSettings = &svcapitypes.NeptuneSettings{}
+			}
+			if latestKO.Spec.NeptuneSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.NeptuneSettings.ServiceAccessRoleRef = desiredKO.Spec.NeptuneSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.OracleSettings != nil {
+		if desiredKO.Spec.OracleSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.OracleSettings == nil {
+				latestKO.Spec.OracleSettings = &svcapitypes.OracleSettings{}
+			}
+			if latestKO.Spec.OracleSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.OracleSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.OracleSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.OracleSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.OracleSettings == nil {
+				latestKO.Spec.OracleSettings = &svcapitypes.OracleSettings{}
+			}
+			if latestKO.Spec.OracleSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.OracleSettings.SecretsManagerSecretRef = desiredKO.Spec.OracleSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+	if desiredKO.Spec.PostgreSQLSettings != nil {
+		if desiredKO.Spec.PostgreSQLSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.PostgreSQLSettings == nil {
+				latestKO.Spec.PostgreSQLSettings = &svcapitypes.PostgreSQLSettings{}
+			}
+			if latestKO.Spec.PostgreSQLSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.PostgreSQLSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.PostgreSQLSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.PostgreSQLSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.PostgreSQLSettings == nil {
+				latestKO.Spec.PostgreSQLSettings = &svcapitypes.PostgreSQLSettings{}
+			}
+			if latestKO.Spec.PostgreSQLSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.PostgreSQLSettings.SecretsManagerSecretRef = desiredKO.Spec.PostgreSQLSettings.SecretsManagerSecretRef
+			}
+		}
+		if desiredKO.Spec.PostgreSQLSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.PostgreSQLSettings == nil {
+				latestKO.Spec.PostgreSQLSettings = &svcapitypes.PostgreSQLSettings{}
+			}
+			if latestKO.Spec.PostgreSQLSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.PostgreSQLSettings.ServiceAccessRoleRef = desiredKO.Spec.PostgreSQLSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.RedisSettings != nil {
+		if desiredKO.Spec.RedisSettings.SSLCaCertificateRef != nil {
+			if latestKO.Spec.RedisSettings == nil {
+				latestKO.Spec.RedisSettings = &svcapitypes.RedisSettings{}
+			}
+			if latestKO.Spec.RedisSettings.SSLCaCertificateRef == nil {
+				latestKO.Spec.RedisSettings.SSLCaCertificateRef = desiredKO.Spec.RedisSettings.SSLCaCertificateRef
+			}
+		}
+	}
+	if desiredKO.Spec.RedshiftSettings != nil {
+		if desiredKO.Spec.RedshiftSettings.BucketRef != nil {
+			if latestKO.Spec.RedshiftSettings == nil {
+				latestKO.Spec.RedshiftSettings = &svcapitypes.RedshiftSettings{}
+			}
+			if latestKO.Spec.RedshiftSettings.BucketRef == nil {
+				latestKO.Spec.RedshiftSettings.BucketRef = desiredKO.Spec.RedshiftSettings.BucketRef
+			}
+		}
+		if desiredKO.Spec.RedshiftSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.RedshiftSettings == nil {
+				latestKO.Spec.RedshiftSettings = &svcapitypes.RedshiftSettings{}
+			}
+			if latestKO.Spec.RedshiftSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.RedshiftSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.RedshiftSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.RedshiftSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.RedshiftSettings == nil {
+				latestKO.Spec.RedshiftSettings = &svcapitypes.RedshiftSettings{}
+			}
+			if latestKO.Spec.RedshiftSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.RedshiftSettings.SecretsManagerSecretRef = desiredKO.Spec.RedshiftSettings.SecretsManagerSecretRef
+			}
+		}
+		if desiredKO.Spec.RedshiftSettings.ServerSideEncryptionKMSKeyRef != nil {
+			if latestKO.Spec.RedshiftSettings == nil {
+				latestKO.Spec.RedshiftSettings = &svcapitypes.RedshiftSettings{}
+			}
+			if latestKO.Spec.RedshiftSettings.ServerSideEncryptionKMSKeyRef == nil {
+				latestKO.Spec.RedshiftSettings.ServerSideEncryptionKMSKeyRef = desiredKO.Spec.RedshiftSettings.ServerSideEncryptionKMSKeyRef
+			}
+		}
+		if desiredKO.Spec.RedshiftSettings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.RedshiftSettings == nil {
+				latestKO.Spec.RedshiftSettings = &svcapitypes.RedshiftSettings{}
+			}
+			if latestKO.Spec.RedshiftSettings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.RedshiftSettings.ServiceAccessRoleRef = desiredKO.Spec.RedshiftSettings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.S3Settings != nil {
+		if desiredKO.Spec.S3Settings.BucketRef != nil {
+			if latestKO.Spec.S3Settings == nil {
+				latestKO.Spec.S3Settings = &svcapitypes.S3Settings{}
+			}
+			if latestKO.Spec.S3Settings.BucketRef == nil {
+				latestKO.Spec.S3Settings.BucketRef = desiredKO.Spec.S3Settings.BucketRef
+			}
+		}
+		if desiredKO.Spec.S3Settings.ServerSideEncryptionKMSKeyRef != nil {
+			if latestKO.Spec.S3Settings == nil {
+				latestKO.Spec.S3Settings = &svcapitypes.S3Settings{}
+			}
+			if latestKO.Spec.S3Settings.ServerSideEncryptionKMSKeyRef == nil {
+				latestKO.Spec.S3Settings.ServerSideEncryptionKMSKeyRef = desiredKO.Spec.S3Settings.ServerSideEncryptionKMSKeyRef
+			}
+		}
+		if desiredKO.Spec.S3Settings.ServiceAccessRoleRef != nil {
+			if latestKO.Spec.S3Settings == nil {
+				latestKO.Spec.S3Settings = &svcapitypes.S3Settings{}
+			}
+			if latestKO.Spec.S3Settings.ServiceAccessRoleRef == nil {
+				latestKO.Spec.S3Settings.ServiceAccessRoleRef = desiredKO.Spec.S3Settings.ServiceAccessRoleRef
+			}
+		}
+	}
+	if desiredKO.Spec.SybaseSettings != nil {
+		if desiredKO.Spec.SybaseSettings.SecretsManagerAccessRoleRef != nil {
+			if latestKO.Spec.SybaseSettings == nil {
+				latestKO.Spec.SybaseSettings = &svcapitypes.SybaseSettings{}
+			}
+			if latestKO.Spec.SybaseSettings.SecretsManagerAccessRoleRef == nil {
+				latestKO.Spec.SybaseSettings.SecretsManagerAccessRoleRef = desiredKO.Spec.SybaseSettings.SecretsManagerAccessRoleRef
+			}
+		}
+		if desiredKO.Spec.SybaseSettings.SecretsManagerSecretRef != nil {
+			if latestKO.Spec.SybaseSettings == nil {
+				latestKO.Spec.SybaseSettings = &svcapitypes.SybaseSettings{}
+			}
+			if latestKO.Spec.SybaseSettings.SecretsManagerSecretRef == nil {
+				latestKO.Spec.SybaseSettings.SecretsManagerSecretRef = desiredKO.Spec.SybaseSettings.SecretsManagerSecretRef
+			}
+		}
+	}
+
+	return &resource{latestKO}
+}
+
 // ResolveReferences finds if there are any Reference field(s) present
 // inside AWSResource passed in the parameter and attempts to resolve those
 // reference field(s) into their respective target field(s). It returns a
