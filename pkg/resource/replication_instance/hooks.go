@@ -18,7 +18,7 @@ import (
 	"regexp"
 
 	svcapitypes "github.com/aws-controllers-k8s/dms-controller/apis/v1alpha1"
-	"github.com/aws-controllers-k8s/dms-controller/pkg/util"
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"
@@ -67,9 +67,15 @@ func (rm *resourceManager) syncTags(
 
 	arn := (*string)(latest.ko.Status.ACKResourceMetadata.ARN)
 
-	toAdd, toDelete := util.ComputeTagsDelta(
-		desired.ko.Spec.Tags, latest.ko.Spec.Tags,
-	)
+	from, fromOrder := convertToOrderedACKTags(latest.ko.Spec.Tags)
+	to, toOrder := convertToOrderedACKTags(desired.ko.Spec.Tags)
+	added, _, removed := ackcompare.GetTagsDifference(from, to)
+	toAdd := fromACKTags(added, toOrder)
+	toDeleteTags := fromACKTags(removed, fromOrder)
+	toDelete := make([]string, 0, len(toDeleteTags))
+	for _, tag := range toDeleteTags {
+		toDelete = append(toDelete, *tag.Key)
+	}
 
 	if len(toDelete) > 0 {
 		rlog.Debug("removing tags from replication instance", "tags", toDelete)

@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	svcapitypes "github.com/aws-controllers-k8s/dms-controller/apis/v1alpha1"
-	"github.com/aws-controllers-k8s/dms-controller/pkg/util"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
@@ -63,9 +62,15 @@ func (rm *resourceManager) syncTags(
 
 	arn := (*string)(latest.ko.Status.ACKResourceMetadata.ARN)
 
-	toAdd, toDelete := util.ComputeTagsDelta(
-		desired.ko.Spec.Tags, latest.ko.Spec.Tags,
-	)
+	from, fromOrder := convertToOrderedACKTags(latest.ko.Spec.Tags)
+	to, toOrder := convertToOrderedACKTags(desired.ko.Spec.Tags)
+	added, _, removed := ackcompare.GetTagsDifference(from, to)
+	toAdd := fromACKTags(added, toOrder)
+	toDeleteTags := fromACKTags(removed, fromOrder)
+	toDelete := make([]string, 0, len(toDeleteTags))
+	for _, tag := range toDeleteTags {
+		toDelete = append(toDelete, *tag.Key)
+	}
 
 	if len(toDelete) > 0 {
 		rlog.Debug("removing tags from certificate", "tags", toDelete)
